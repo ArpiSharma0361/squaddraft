@@ -1,0 +1,35 @@
+{
+  "roomId": "main",
+  "publicUrl": "https://1b7751205dc23b.lhr.life",
+  "players": [],
+  "matchTitle": "Sunday Turf Derby 8v8",
+  "captain1": null,
+  "captain2": null,
+  "team1Kit": "white",
+  "team2Kit": "black",
+  "team1Name": "Team White",
+  "team2Name": "Team Black",
+  "roomStep": "toss",
+  "firstPickCaptain": null,
+  "tossState": {
+    "mode": "coin",
+    "isFlipping": false,
+    "callerChoice": "heads",
+    "coinResult": null,
+    "cap1Rps": null,
+    "cap2Rps": null,
+    "rpsResultText": "",
+    "winner": null
+  },
+  "draftState": {
+    "team1": [],
+    "team2": [],
+    "availablePlayers": [],
+    "currentTurn": 1,
+    "pickNumber": 1,
+    "draftHistory": [],
+    "gkAlert": null
+  },
+  "finalTeam1": [],
+  "finalTeam2": []
+}

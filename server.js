@@ -79,7 +79,44 @@ function createInitialState(roomId = 'main') {
   };
 }
 
-let roomState = createInitialState('main');
+const DATA_DIR = path.join(__dirname, 'data');
+const STATE_FILE = path.join(DATA_DIR, 'match_state.json');
+
+function loadStateFromFile() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = fs.readFileSync(STATE_FILE, 'utf8');
+      const loaded = JSON.parse(raw);
+      console.log('📦 Loaded persistent match state from disk with', loaded.players?.length || 0, 'players.');
+      return loaded;
+    }
+  } catch (err) {
+    console.error('⚠️ Could not load saved state, using default:', err);
+  }
+  return createInitialState('main');
+}
+
+function saveStateToFile() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(STATE_FILE, JSON.stringify(roomState, null, 2), 'utf8');
+  } catch (err) {
+    console.error('⚠️ Could not persist match state:', err);
+  }
+}
+
+let roomState = loadStateFromFile();
+
+function broadcastState() {
+  saveStateToFile();
+  io.emit('room_state_updated', roomState);
+}
+
 
 io.on('connection', (socket) => {
   socket.emit('room_state_updated', roomState);
@@ -90,19 +127,19 @@ io.on('connection', (socket) => {
 
   socket.on('set_public_url', (url) => {
     roomState.publicUrl = url;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('player_register', (newPlayer) => {
     if (!roomState.players.some(p => p.name.toLowerCase() === newPlayer.name.toLowerCase())) {
       roomState.players.push(newPlayer);
-      io.emit('room_state_updated', roomState);
+      broadcastState();
     }
   });
 
   socket.on('admin_bulk_import', (parsedPlayers) => {
     roomState.players = parsedPlayers;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('admin_load_demo_players', () => {
@@ -110,14 +147,14 @@ io.on('connection', (socket) => {
     roomState.players = demo;
     roomState.captain1 = demo[0]; // Deepak
     roomState.captain2 = demo[1]; // Ayaan
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('admin_clear_roster', () => {
     roomState.players = [];
     roomState.captain1 = null;
     roomState.captain2 = null;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('update_player_position', ({ playerId, newPosition }) => {
@@ -130,7 +167,7 @@ io.on('connection', (socket) => {
     if (roomState.captain2 && roomState.captain2.id === playerId) {
       roomState.captain2.position = newPosition;
     }
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('update_player_name', ({ playerId, newName }) => {
@@ -143,14 +180,14 @@ io.on('connection', (socket) => {
     if (roomState.captain2 && roomState.captain2.id === playerId) {
       roomState.captain2.name = newName;
     }
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('delete_player', (playerId) => {
     roomState.players = roomState.players.filter(p => p.id !== playerId);
     if (roomState.captain1 && roomState.captain1.id === playerId) roomState.captain1 = null;
     if (roomState.captain2 && roomState.captain2.id === playerId) roomState.captain2 = null;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('set_match_config', (config) => {
@@ -162,12 +199,12 @@ io.on('connection', (socket) => {
     if (config.team1Name !== undefined) roomState.team1Name = config.team1Name;
     if (config.team2Name !== undefined) roomState.team2Name = config.team2Name;
     if (config.publicUrl !== undefined) roomState.publicUrl = config.publicUrl;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('set_room_step', (step) => {
     roomState.roomStep = step;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('toss_start_flip', () => {
@@ -178,12 +215,12 @@ io.on('connection', (socket) => {
 
   socket.on('toss_set_caller_choice', (choice) => {
     roomState.tossState.callerChoice = choice;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('toss_set_mode', (mode) => {
     roomState.tossState.mode = mode;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('toss_finish_flip', ({ outcome, winner }) => {
@@ -191,7 +228,7 @@ io.on('connection', (socket) => {
     roomState.tossState.coinResult = outcome;
     roomState.tossState.winner = winner;
     roomState.firstPickCaptain = winner;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('toss_rps_play', ({ cap1Choice, cap2Choice, resultText, winner }) => {
@@ -202,7 +239,7 @@ io.on('connection', (socket) => {
       roomState.tossState.winner = winner;
       roomState.firstPickCaptain = winner;
     }
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('start_draft', () => {
@@ -221,7 +258,7 @@ io.on('connection', (socket) => {
       gkAlert: null
     };
     roomState.roomStep = 'draft';
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   // Draft Pick Player with Smart GK Balancing & Turn Retention for Toss Winner
@@ -298,7 +335,7 @@ io.on('connection', (socket) => {
       roomState.roomStep = 'pitch';
     }
 
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   // Undo / Unpick action (usable by both captains and admin)
@@ -312,13 +349,13 @@ io.on('connection', (socket) => {
     ds.currentTurn = last.currentTurn;
     ds.pickNumber = last.pickNumber;
     ds.gkAlert = null;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
   });
 
   socket.on('dismiss_gk_alert', () => {
     if (roomState.draftState) {
       roomState.draftState.gkAlert = null;
-      io.emit('room_state_updated', roomState);
+      broadcastState();
     }
   });
 
@@ -326,7 +363,22 @@ io.on('connection', (socket) => {
     const prevUrl = roomState.publicUrl;
     roomState = createInitialState('main');
     roomState.publicUrl = prevUrl;
-    io.emit('room_state_updated', roomState);
+    broadcastState();
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    application: 'SquadDraft PRO',
+    backend: 'OK',
+    database: 'OK',
+    realtime: 'OK',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    playersCount: roomState.players ? roomState.players.length : 0,
+    roomStep: roomState.roomStep,
+    matchTitle: roomState.matchTitle
   });
 });
 
@@ -357,7 +409,7 @@ function startTunnel() {
     console.log('🚀 RUNNING IN CLOUD PRODUCTION ENVIRONMENT:');
     console.log(roomState.publicUrl);
     console.log('======================================================\n');
-    io.emit('room_state_updated', roomState);
+    broadcastState();
     return;
   }
 
@@ -387,7 +439,7 @@ function startTunnel() {
         console.log('🚀 PUBLIC SHAREABLE WHATSAPP LINK IS ACTIVE:');
         console.log(roomState.publicUrl);
         console.log('======================================================\n');
-        io.emit('room_state_updated', roomState);
+        broadcastState();
       }
     };
 

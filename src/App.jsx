@@ -56,12 +56,22 @@ export default function App() {
   const [roomRole, setRoomRole] = useState('cap1');
 
   useEffect(() => {
+    const path = (window.location.pathname || '').toLowerCase();
     const params = new URLSearchParams(window.location.search);
     const roleParam = params.get('role');
     const viewParam = params.get('view');
 
     let r = (roleParam || '').toLowerCase().trim();
     let v = (viewParam || '').toLowerCase().trim();
+
+    // Clean pathname routing
+    if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
+    else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
+    else if (path.includes('/spectator')) r = 'spectator';
+    else if (path.includes('/admin')) v = 'admin';
+    else if (path.includes('/register')) v = 'register';
+
+    // Query parameter support (matches existing ?view=registersvg, ?role=cap1svg, etc.)
     if (r.includes('cap1')) r = 'cap1';
     else if (r.includes('cap2')) r = 'cap2';
     else if (r.includes('spectator')) r = 'spectator';
