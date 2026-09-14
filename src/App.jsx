@@ -12,7 +12,24 @@ import { sfx } from './utils/soundEffects';
 
 export default function App() {
   const [activeView, setActiveView] = useState('register');
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedInState] = useState(() => {
+    try {
+      return localStorage.getItem('squaddraft_admin_logged_in') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const setIsAdminLoggedIn = (val) => {
+    setIsAdminLoggedInState(val);
+    try {
+      if (val) {
+        localStorage.setItem('squaddraft_admin_logged_in', 'true');
+      } else {
+        localStorage.removeItem('squaddraft_admin_logged_in');
+      }
+    } catch (e) {}
+  };
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [isConnected, setIsConnected] = useState(socket.connected);
 
@@ -49,8 +66,8 @@ export default function App() {
     gkAlert: null
   });
 
-  const [roomRole, setRoomRole] = useState('cap1');
-  const effectiveRole = isAdminLoggedIn ? 'admin' : roomRole;
+  const [roomRole, setRoomRole] = useState('spectator');
+  const effectiveRole = isAdminLoggedIn ? 'admin' : (roomRole || 'spectator');
   const [playerDirectory, setPlayerDirectory] = useState([]);
   const [matchArchive, setMatchArchive] = useState([]);
   const [matchMetadata, setMatchMetadata] = useState({
@@ -170,6 +187,7 @@ export default function App() {
         setIsAdminLoggedIn={setIsAdminLoggedIn}
         isSoundOn={isSoundOn}
         setIsSoundOn={setIsSoundOn}
+        setRoomRole={setRoomRole}
         onReset={handleReset}
         roomStep={roomStep}
         isConnected={isConnected}
@@ -207,6 +225,7 @@ export default function App() {
             setIsAdminLoggedIn={setIsAdminLoggedIn}
             onLaunchRoom={() => {
               socket.emit('set_room_step', 'toss');
+              setRoomRole('admin');
               setActiveView('room');
               sfx.playWhistle();
             }}
