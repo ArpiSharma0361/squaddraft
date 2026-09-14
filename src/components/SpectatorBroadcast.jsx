@@ -40,6 +40,33 @@ export default function SpectatorBroadcast({
   const [searchQuery, setSearchQuery] = useState('');
   const [pitchTab, setPitchTab] = useState('dual'); // 'dual' | 'team1' | 'team2'
 
+  // Server-Synchronized Turn Timer
+  const calculateServerTimeLeft = () => {
+    if (!draftState) return 90;
+    if (draftState.isPaused) {
+      return Math.max(0, Math.ceil((draftState.pausedRemainingMs || 90000) / 1000));
+    }
+    if (!draftState.turnEndsAt) return 90;
+    return Math.max(0, Math.ceil((draftState.turnEndsAt - Date.now()) / 1000));
+  };
+
+  const [timeLeft, setTimeLeft] = useState(calculateServerTimeLeft);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      setTimeLeft(calculateServerTimeLeft());
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [draftState?.turnEndsAt, draftState?.isPaused, draftState?.pausedRemainingMs]);
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const activeCaptain = currentTurn === 1 ? captain1 : captain2;
   const activeTeamName = currentTurn === 1 ? team1Name : team2Name;
   const activeKit = currentTurn === 1 ? team1Kit : team2Kit;
@@ -145,7 +172,15 @@ export default function SpectatorBroadcast({
               </div>
             ) : (
               <div className="p-3 bg-slate-900 text-white rounded-2xl border border-slate-700 shadow-md">
-                <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">CURRENT ON THE CLOCK</div>
+                <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-center space-x-1.5">
+                  <span>CURRENT ON THE CLOCK</span>
+                  <span>•</span>
+                  <span className="font-mono text-white flex items-center space-x-1">
+                    <Clock className="w-3 h-3 text-amber-400" />
+                    <span>{formatTime(timeLeft)}</span>
+                    {draftState?.isPaused && <span className="text-rose-400 text-[9px] font-bold ml-1">(PAUSED)</span>}
+                  </span>
+                </div>
                 <div className="text-sm font-black text-white mt-0.5">
                   👑 {activeCaptain?.name || `Captain ${currentTurn}`} ({activeTeamName})
                 </div>

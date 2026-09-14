@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 let dbDriver = 'sqlite';
 let pgPool = null;
 let sqliteDb = null;
+let dbConnected = false;
 
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -17,7 +18,18 @@ if (!fs.existsSync(DATA_DIR)) {
 const SQLITE_FILE = path.join(DATA_DIR, 'squaddraft.db');
 
 export async function initDatabase() {
+  const isProd = process.env.NODE_ENV === 'production';
   const databaseUrl = process.env.DATABASE_URL;
+
+  // SAFEGUARD 1: PostgreSQL is strictly required in production.
+  // Fail startup clearly if NODE_ENV=production and DATABASE_URL is missing.
+  if (isProd) {
+    if (!databaseUrl || (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://'))) {
+      console.error('❌ FATAL: Production environment detected (NODE_ENV=production) but PostgreSQL DATABASE_URL is missing or invalid.');
+      console.error('❌ SQLite fallback is strictly prohibited in production.');
+      throw new Error('FATAL: Startup aborted. PostgreSQL DATABASE_URL is required in production.');
+    }
+  }
 
   if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
     try {
@@ -25,14 +37,22 @@ export async function initDatabase() {
       const { Pool } = pg;
       pgPool = new Pool({
         connectionString: databaseUrl,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
+        ssl: isProd ? { rejectUnauthorized: false } : undefined,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000
       });
       const client = await pgPool.connect();
       client.release();
       dbDriver = 'postgres';
-      console.log('✅ Connected to PostgreSQL database via DATABASE_URL');
+      dbConnected = true;
+      console.log('✅ Connected to PostgreSQL production database successfully.');
     } catch (err) {
-      console.warn('⚠️ Could not connect to PostgreSQL, falling back to embedded SQLite:', err.message);
+      if (isProd) {
+        console.error('❌ FATAL: Could not connect to PostgreSQL database in production:', err.message);
+        throw err;
+      }
+      console.warn('⚠️ Could not connect to PostgreSQL in local dev, falling back to embedded SQLite:', err.message);
       dbDriver = 'sqlite';
     }
   }
@@ -40,16 +60,25 @@ export async function initDatabase() {
   if (dbDriver === 'sqlite') {
     const { DatabaseSync } = await import('node:sqlite');
     sqliteDb = new DatabaseSync(SQLITE_FILE);
-    console.log('✅ Initialized native embedded SQLite database at', SQLITE_FILE);
+    dbConnected = true;
+    console.log('✅ Initialized native embedded SQLite database for local development at', SQLITE_FILE);
   }
 
   await createTables();
   await migrateFromLegacyJson();
 }
 
+export function getDatabaseStatus() {
+  return {
+    database: dbConnected ? 'connected' : 'disconnected',
+    databaseType: dbDriver === 'postgres' ? 'postgresql' : 'sqlite'
+  };
+}
+
 export async function query(sql, params = []) {
+  const sanitizedParams = (params || []).map(p => (p === undefined ? null : p));
   if (dbDriver === 'postgres') {
-    const res = await pgPool.query(sql, params);
+    const res = await pgPool.query(sql, sanitizedParams);
     return res.rows;
   } else {
     // Convert $1, $2, $3 to ? for SQLite
@@ -57,20 +86,23 @@ export async function query(sql, params = []) {
     const trimmed = sqliteSql.trim().toUpperCase();
     if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH')) {
       const stmt = sqliteDb.prepare(sqliteSql);
-      return stmt.all(...params);
+      return stmt.all(...sanitizedParams);
     } else {
       const stmt = sqliteDb.prepare(sqliteSql);
-      const info = stmt.run(...params);
+      const info = stmt.run(...sanitizedParams);
       return [{ changes: info.changes, lastInsertRowid: info.lastInsertRowid }];
     }
   }
 }
 
 async function createTables() {
+  const isPg = dbDriver === 'postgres';
+
+  // 1. Players (Unique name constraint)
   await query(`
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
+      name TEXT NOT NULL UNIQUE,
       position TEXT NOT NULL,
       secondary_position TEXT DEFAULT '',
       active INTEGER DEFAULT 1,
@@ -79,6 +111,7 @@ async function createTables() {
     )
   `);
 
+  // 2. Matches
   await query(`
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
@@ -97,6 +130,7 @@ async function createTables() {
     )
   `);
 
+  // 3. Match Players
   await query(`
     CREATE TABLE IF NOT EXISTS match_players (
       match_id TEXT NOT NULL,
@@ -108,17 +142,21 @@ async function createTables() {
     )
   `);
 
+  // 4. Captains (Match scoped, unique tokens, revocable)
   await query(`
     CREATE TABLE IF NOT EXISTS captains (
       match_id TEXT NOT NULL,
       captain_number INTEGER NOT NULL,
       player_id TEXT,
       kit_color TEXT,
-      access_token TEXT NOT NULL,
+      access_token TEXT NOT NULL UNIQUE,
+      is_revoked INTEGER DEFAULT 0,
+      assigned_at TEXT NOT NULL,
       PRIMARY KEY (match_id, captain_number)
     )
   `);
 
+  // 5. Coin Toss
   await query(`
     CREATE TABLE IF NOT EXISTS coin_toss (
       match_id TEXT PRIMARY KEY,
@@ -130,6 +168,7 @@ async function createTables() {
     )
   `);
 
+  // 6. Draft State
   await query(`
     CREATE TABLE IF NOT EXISTS draft_state (
       match_id TEXT PRIMARY KEY,
@@ -142,6 +181,7 @@ async function createTables() {
     )
   `);
 
+  // 7. Draft Picks (Strict constraints: player can only be drafted ONCE per match)
   await query(`
     CREATE TABLE IF NOT EXISTS draft_picks (
       id TEXT PRIMARY KEY,
@@ -151,10 +191,12 @@ async function createTables() {
       player_id TEXT NOT NULL,
       picked_by_role TEXT NOT NULL,
       is_auto_gk INTEGER DEFAULT 0,
-      picked_at TEXT NOT NULL
+      picked_at TEXT NOT NULL,
+      UNIQUE (match_id, player_id)
     )
   `);
 
+  // 8. Match Results (Final Score)
   await query(`
     CREATE TABLE IF NOT EXISTS match_results (
       match_id TEXT PRIMARY KEY,
@@ -166,10 +208,11 @@ async function createTables() {
     )
   `);
 
+  // 9. Match Archive (Unique match_id)
   await query(`
     CREATE TABLE IF NOT EXISTS match_archive (
       id TEXT PRIMARY KEY,
-      match_id TEXT NOT NULL,
+      match_id TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       date TEXT NOT NULL,
       venue TEXT NOT NULL,
@@ -184,6 +227,7 @@ async function createTables() {
     )
   `);
 
+  // 10. Admin Sessions
   await query(`
     CREATE TABLE IF NOT EXISTS admin_sessions (
       token TEXT PRIMARY KEY,
@@ -191,8 +235,23 @@ async function createTables() {
       expires_at TEXT NOT NULL
     )
   `);
+
+  // Migration safeguard: Ensure is_revoked column exists in captains table
+  try {
+    if (isPg) {
+      await query(`ALTER TABLE captains ADD COLUMN IF NOT EXISTS is_revoked INTEGER DEFAULT 0`);
+    } else {
+      const cols = await query(`PRAGMA table_info(captains)`);
+      if (!cols.some(c => c.name === 'is_revoked')) {
+        await query(`ALTER TABLE captains ADD COLUMN is_revoked INTEGER DEFAULT 0`);
+      }
+    }
+  } catch (e) {}
+
+  console.log('✅ All relational tables and constraints verified in database.');
 }
 
+// SAFEGUARD 2: Idempotent Migration from match_state.json
 export async function migrateFromLegacyJson() {
   const jsonPath = path.join(DATA_DIR, 'match_state.json');
   if (!fs.existsSync(jsonPath)) return;
@@ -201,50 +260,50 @@ export async function migrateFromLegacyJson() {
     const raw = fs.readFileSync(jsonPath, 'utf8');
     const legacy = JSON.parse(raw);
 
-    const existingPlayers = await query('SELECT COUNT(*) as cnt FROM players');
-    const playerCount = parseInt(existingPlayers[0]?.cnt || 0, 10);
-
-    if (playerCount === 0) {
-      const dir = legacy.playerDirectory || legacy.players || [];
-      console.log(`📦 Migrating ${dir.length} players from legacy JSON into database...`);
-      for (const p of dir) {
-        if (!p.id || !p.name) continue;
+    // Migrate Directory Players (Idempotent upsert via ON CONFLICT / ignore)
+    const dir = legacy.playerDirectory || legacy.players || [];
+    for (const p of dir) {
+      if (!p.id || !p.name) continue;
+      const existing = await query('SELECT id FROM players WHERE id = $1 OR name = $2', [p.id, p.name.trim()]);
+      if (existing.length === 0) {
         await query(
-          'INSERT OR IGNORE INTO players (id, name, position, secondary_position, active, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [p.id, p.name, p.position || 'MID', p.secondaryPosition || '', 1, p.rating || 4, new Date().toISOString()]
+          'INSERT INTO players (id, name, position, secondary_position, active, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [p.id, p.name.trim(), p.position || 'MID', p.secondaryPosition || '', 1, p.rating || 4, new Date().toISOString()]
         ).catch(() => {});
       }
     }
 
-    const existingArchive = await query('SELECT COUNT(*) as cnt FROM match_archive');
-    const archiveCount = parseInt(existingArchive[0]?.cnt || 0, 10);
-
-    if (archiveCount === 0 && Array.isArray(legacy.matchArchive) && legacy.matchArchive.length > 0) {
-      console.log(`📦 Migrating ${legacy.matchArchive.length} archived matches from legacy JSON into database...`);
+    // Migrate Match Archive (Idempotent via unique match_id check)
+    if (Array.isArray(legacy.matchArchive) && legacy.matchArchive.length > 0) {
       for (const m of legacy.matchArchive) {
-        const id = m.id || ('arch_' + Date.now());
-        await query(
-          `INSERT OR IGNORE INTO match_archive 
-           (id, match_id, name, date, venue, format, team1_name, team2_name, team1_score, team2_score, winner, archived_payload, archived_at) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            id,
-            m.matchId || id,
-            m.name || 'Sunday Match',
-            m.date || '',
-            m.venue || 'Turf',
-            m.format || '8v8',
-            m.team1Name || 'Team White',
-            m.team2Name || 'Team Black',
-            m.team1Score !== undefined ? m.team1Score : null,
-            m.team2Score !== undefined ? m.team2Score : null,
-            m.winner || null,
-            JSON.stringify(m),
-            m.archivedAt || new Date().toISOString()
-          ]
-        ).catch(() => {});
+        const matchId = m.matchId || m.id || ('arch_' + Date.now());
+        const existingArch = await query('SELECT id FROM match_archive WHERE match_id = $1 OR id = $2', [matchId, m.id || matchId]);
+        if (existingArch.length === 0) {
+          await query(
+            `INSERT INTO match_archive 
+             (id, match_id, name, date, venue, format, team1_name, team2_name, team1_score, team2_score, winner, archived_payload, archived_at) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            [
+              m.id || matchId,
+              matchId,
+              m.name || 'Sunday Match',
+              m.date || '',
+              m.venue || 'Turf',
+              m.format || '8v8',
+              m.team1Name || 'Team White',
+              m.team2Name || 'Team Black',
+              m.team1Score !== undefined ? m.team1Score : null,
+              m.team2Score !== undefined ? m.team2Score : null,
+              m.winner || null,
+              JSON.stringify(m),
+              m.archivedAt || new Date().toISOString()
+            ]
+          ).catch(() => {});
+        }
       }
     }
+
+    console.log('✅ Idempotent migration from match_state.json verified.');
   } catch (err) {
     console.error('⚠️ Error during migration check:', err);
   }
@@ -260,16 +319,16 @@ export async function dbGetAllPlayers() {
 }
 
 export async function dbUpsertPlayer(player) {
-  const existing = await query('SELECT id FROM players WHERE id = $1', [player.id]);
+  const existing = await query('SELECT id FROM players WHERE id = $1 OR name = $2', [player.id, player.name.trim()]);
   if (existing.length > 0) {
     await query(
       'UPDATE players SET name = $1, position = $2, secondary_position = $3, rating = $4 WHERE id = $5',
-      [player.name, player.position, player.secondaryPosition || '', player.rating || 4, player.id]
+      [player.name.trim(), player.position, player.secondaryPosition || '', player.rating || 4, existing[0].id]
     );
   } else {
     await query(
       'INSERT INTO players (id, name, position, secondary_position, active, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [player.id, player.name, player.position, player.secondaryPosition || '', 1, player.rating || 4, new Date().toISOString()]
+      [player.id, player.name.trim(), player.position, player.secondaryPosition || '', 1, player.rating || 4, new Date().toISOString()]
     );
   }
 }
@@ -278,22 +337,30 @@ export async function dbDeletePlayer(id) {
   await query('DELETE FROM players WHERE id = $1', [id]);
 }
 
-// --- Captain Tokens & Verification ---
+// --- Captain Tokens & Revocation (SAFEGUARD 6) ---
 export async function dbSetCaptainToken(matchId, captainNumber, playerId, kitColor, token) {
-  await query(`
-    INSERT INTO captains (match_id, captain_number, player_id, kit_color, access_token)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (match_id, captain_number) DO UPDATE SET
-      player_id = EXCLUDED.player_id,
-      kit_color = EXCLUDED.kit_color,
-      access_token = EXCLUDED.access_token
-  `, [matchId, captainNumber, playerId, kitColor, token]);
+  // Revoke any previous token for this captain slot
+  await query('UPDATE captains SET is_revoked = 1 WHERE match_id = $1 AND captain_number = $2', [matchId, captainNumber]);
+
+  // Insert or update active captain credentials
+  const existing = await query('SELECT match_id FROM captains WHERE match_id = $1 AND captain_number = $2', [matchId, captainNumber]);
+  if (existing.length > 0) {
+    await query(`
+      UPDATE captains SET player_id = $1, kit_color = $2, access_token = $3, is_revoked = 0, assigned_at = $4
+      WHERE match_id = $5 AND captain_number = $6
+    `, [playerId, kitColor, token, new Date().toISOString(), matchId, captainNumber]);
+  } else {
+    await query(`
+      INSERT INTO captains (match_id, captain_number, player_id, kit_color, access_token, is_revoked, assigned_at)
+      VALUES ($1, $2, $3, $4, $5, 0, $6)
+    `, [matchId, captainNumber, playerId, kitColor, token, new Date().toISOString()]);
+  }
 }
 
 export async function dbGetCaptainByToken(matchId, token) {
   if (!token) return null;
   const rows = await query(
-    'SELECT captain_number, player_id, kit_color FROM captains WHERE match_id = $1 AND access_token = $2',
+    'SELECT captain_number, player_id, kit_color FROM captains WHERE match_id = $1 AND access_token = $2 AND is_revoked = 0',
     [matchId, token]
   );
   if (rows.length === 0) return null;
@@ -301,10 +368,14 @@ export async function dbGetCaptainByToken(matchId, token) {
 }
 
 export async function dbGetCaptains(matchId) {
-  return await query('SELECT captain_number, player_id, kit_color, access_token FROM captains WHERE match_id = $1', [matchId]);
+  return await query('SELECT captain_number, player_id, kit_color, access_token, is_revoked FROM captains WHERE match_id = $1', [matchId]);
 }
 
-// --- Admin Session Auth ---
+export async function dbRevokeCaptainTokens(matchId) {
+  await query('UPDATE captains SET is_revoked = 1 WHERE match_id = $1', [matchId]);
+}
+
+// --- Admin Session Auth (SAFEGUARD 5) ---
 export async function dbCreateAdminSession(token, durationMs = 24 * 60 * 60 * 1000) {
   const expiresAt = new Date(Date.now() + durationMs).toISOString();
   await query('INSERT INTO admin_sessions (token, created_at, expires_at) VALUES ($1, $2, $3)', [
@@ -334,16 +405,19 @@ export async function dbSaveMatchScore(matchId, team1Score, team2Score, team1Nam
   const isDraw = t1 === t2 ? 1 : 0;
   const winner = t1 > t2 ? team1Name : t2 > t1 ? team2Name : 'Draw';
 
-  await query(`
-    INSERT INTO match_results (match_id, team1_score, team2_score, winner, is_draw, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (match_id) DO UPDATE SET
-      team1_score = EXCLUDED.team1_score,
-      team2_score = EXCLUDED.team2_score,
-      winner = EXCLUDED.winner,
-      is_draw = EXCLUDED.is_draw,
-      updated_at = EXCLUDED.updated_at
-  `, [matchId, t1, t2, winner, isDraw, new Date().toISOString()]);
+  const existing = await query('SELECT match_id FROM match_results WHERE match_id = $1', [matchId]);
+  if (existing.length > 0) {
+    await query(`
+      UPDATE match_results 
+      SET team1_score = $1, team2_score = $2, winner = $3, is_draw = $4, updated_at = $5
+      WHERE match_id = $6
+    `, [t1, t2, winner, isDraw, new Date().toISOString(), matchId]);
+  } else {
+    await query(`
+      INSERT INTO match_results (match_id, team1_score, team2_score, winner, is_draw, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [matchId, t1, t2, winner, isDraw, new Date().toISOString()]);
+  }
 
   return { team1Score: t1, team2Score: t2, winner, isDraw: isDraw === 1 };
 }
@@ -353,31 +427,66 @@ export async function dbGetMatchScore(matchId) {
   return rows[0] || null;
 }
 
-// --- Match Archive & History ---
+// --- Match Archive & History (SAFEGUARD 8: ONLY Public Information Exposed) ---
 export async function dbArchiveMatch(archivedData) {
   const id = archivedData.id || ('arch_' + Date.now());
   const matchId = archivedData.matchId || id;
-  await query(`
-    INSERT INTO match_archive (id, match_id, name, date, venue, format, team1_name, team2_name, team1_score, team2_score, winner, archived_payload, archived_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-  `, [
-    id,
-    matchId,
-    archivedData.name || 'Sunday Turf Match',
-    archivedData.date || new Date().toLocaleDateString('en-GB'),
-    archivedData.venue || 'ABC Turf',
-    archivedData.format || '8v8',
-    archivedData.team1Name || 'Team White',
-    archivedData.team2Name || 'Team Black',
-    archivedData.team1Score !== undefined ? archivedData.team1Score : null,
-    archivedData.team2Score !== undefined ? archivedData.team2Score : null,
-    archivedData.winner || null,
-    JSON.stringify(archivedData),
-    new Date().toISOString()
-  ]);
+  
+  // Revoke captain tokens when match is archived
+  await dbRevokeCaptainTokens(matchId);
+
+  // Sanitize payload: Strip tokens and credentials
+  const sanitizedPayload = { ...archivedData };
+  delete sanitizedPayload.cap1Token;
+  delete sanitizedPayload.cap2Token;
+  delete sanitizedPayload.adminToken;
+
+  const existing = await query('SELECT id FROM match_archive WHERE match_id = $1 OR id = $2', [matchId, id]);
+  if (existing.length > 0) {
+    await query(`
+      UPDATE match_archive SET
+        name = $1, date = $2, venue = $3, format = $4, team1_name = $5, team2_name = $6,
+        team1_score = $7, team2_score = $8, winner = $9, archived_payload = $10, archived_at = $11
+      WHERE match_id = $12
+    `, [
+      archivedData.name || 'Sunday Turf Match',
+      archivedData.date || new Date().toLocaleDateString('en-GB'),
+      archivedData.venue || 'ABC Turf',
+      archivedData.format || '8v8',
+      archivedData.team1Name || 'Team White',
+      archivedData.team2Name || 'Team Black',
+      archivedData.team1Score !== undefined ? archivedData.team1Score : null,
+      archivedData.team2Score !== undefined ? archivedData.team2Score : null,
+      archivedData.winner || null,
+      JSON.stringify(sanitizedPayload),
+      new Date().toISOString(),
+      matchId
+    ]);
+  } else {
+    await query(`
+      INSERT INTO match_archive (id, match_id, name, date, venue, format, team1_name, team2_name, team1_score, team2_score, winner, archived_payload, archived_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `, [
+      id,
+      matchId,
+      archivedData.name || 'Sunday Turf Match',
+      archivedData.date || new Date().toLocaleDateString('en-GB'),
+      archivedData.venue || 'ABC Turf',
+      archivedData.format || '8v8',
+      archivedData.team1Name || 'Team White',
+      archivedData.team2Name || 'Team Black',
+      archivedData.team1Score !== undefined ? archivedData.team1Score : null,
+      archivedData.team2Score !== undefined ? archivedData.team2Score : null,
+      archivedData.winner || null,
+      JSON.stringify(sanitizedPayload),
+      new Date().toISOString()
+    ]);
+  }
+
   return id;
 }
 
+// SAFEGUARD 8: Public History ONLY exposes public match info
 export async function dbGetPublicHistory() {
   const rows = await query('SELECT id, match_id, name, date, venue, format, team1_name, team2_name, team1_score, team2_score, winner, archived_payload, archived_at FROM match_archive ORDER BY archived_at DESC');
   return rows.map(r => {
@@ -396,10 +505,10 @@ export async function dbGetPublicHistory() {
       team2Score: r.team2_score,
       winner: r.winner,
       archivedAt: r.archived_at,
-      captain1: parsedPayload.captain1 || null,
-      captain2: parsedPayload.captain2 || null,
-      finalTeam1: parsedPayload.finalTeam1 || [],
-      finalTeam2: parsedPayload.finalTeam2 || []
+      captain1: parsedPayload.captain1 ? { name: parsedPayload.captain1.name } : null,
+      captain2: parsedPayload.captain2 ? { name: parsedPayload.captain2.name } : null,
+      finalTeam1: (parsedPayload.finalTeam1 || []).map(p => ({ name: p.name, position: p.position })),
+      finalTeam2: (parsedPayload.finalTeam2 || []).map(p => ({ name: p.name, position: p.position }))
     };
   });
 }

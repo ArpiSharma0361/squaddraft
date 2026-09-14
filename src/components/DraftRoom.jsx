@@ -138,7 +138,7 @@ export default function DraftRoom({
     });
 
     sfx.playPick();
-    socket.emit('draft_pick_player', { player, role: myRole, pickedByTurn: currentTurn });
+    socket.emit('draft_pick_player', { player, token: captainToken, role: myRole, pickedByTurn: currentTurn });
 
     setTimeout(() => {
       setRecentlyPicked(null);
@@ -153,7 +153,7 @@ export default function DraftRoom({
         return;
       }
     }
-    socket.emit('draft_undo', { role: myRole });
+    socket.emit('draft_undo', { adminToken });
     sfx.playBuzzer();
   };
 
@@ -243,11 +243,11 @@ export default function DraftRoom({
           </div>
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              onClick={() => socket.emit('draft_pause_toggle', { adminToken })}
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center space-x-1.5 border border-slate-700 transition-all cursor-pointer"
             >
-              {isTimerRunning ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
-              <span>{isTimerRunning ? 'Pause Draft' : 'Resume Draft'}</span>
+              {!isDraftPaused ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
+              <span>{!isDraftPaused ? 'Pause Draft' : 'Resume Draft'}</span>
             </button>
             {canUndo && (
               <button
@@ -411,11 +411,11 @@ export default function DraftRoom({
                 <span className="tracking-wider">{formatTime(timeLeft)}</span>
                 {myRole === 'admin' && (
                   <button
-                    onClick={() => setIsTimerRunning(!isTimerRunning)}
+                    onClick={() => socket.emit('draft_pause_toggle', { adminToken })}
                     className="ml-1 text-white hover:text-amber-300 transition-colors"
-                    title={isTimerRunning ? 'Pause Timer' : 'Resume Timer'}
+                    title={!isDraftPaused ? 'Pause Timer' : 'Resume Timer'}
                   >
-                    {isTimerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    {!isDraftPaused ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </button>
                 )}
               </div>

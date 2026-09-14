@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import {
   initDatabase,
+  getDatabaseStatus,
   generateSecureToken,
   dbGetAllPlayers,
   dbUpsertPlayer,
@@ -15,6 +16,7 @@ import {
   dbSetCaptainToken,
   dbGetCaptainByToken,
   dbGetCaptains,
+  dbRevokeCaptainTokens,
   dbCreateAdminSession,
   dbValidateAdminSession,
   dbSaveMatchScore,
@@ -101,11 +103,9 @@ function createInitialState(roomId = 'main') {
 const DATA_DIR = path.join(__dirname, 'data');
 const STATE_FILE = path.join(DATA_DIR, 'match_state.json');
 
-function loadStateFromFile() {
+// SAFEGUARD 2 & 3: Load initial state from JSON if available for migration, but database is the single live source of truth.
+function loadInitialStateFromBackup() {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf8');
       const loaded = JSON.parse(raw);
@@ -127,48 +127,42 @@ function loadStateFromFile() {
           status: 'PLAYERS_SETUP'
         };
       }
+      if (!loaded.roomId) loaded.roomId = 'main';
       if (!loaded.cap1Token) loaded.cap1Token = generateSecureToken();
       if (!loaded.cap2Token) loaded.cap2Token = generateSecureToken();
-      console.log('📦 Loaded match state from disk: ' + (loaded.players?.length || 0) + ' active players, ' + (loaded.playerDirectory?.length || 0) + ' directory players.');
       return loaded;
     }
   } catch (err) {
-    console.error('⚠️ Could not load saved state, using default:', err);
+    console.error('⚠️ Could not load initial state from backup file:', err);
   }
   return createInitialState('main');
 }
 
-function saveStateToFile() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(STATE_FILE, JSON.stringify(roomState, null, 2), 'utf8');
-  } catch (err) {
-    console.error('⚠️ Could not persist match state:', err);
-  }
-}
+let roomState = loadInitialStateFromBackup();
+if (!roomState.roomId) roomState.roomId = 'main';
 
-let roomState = loadStateFromFile();
-
+// SAFEGUARD 3: Live persistence writes to database. JSON file is NOT modified during live operation.
 function broadcastState() {
-  saveStateToFile();
   io.emit('room_state_updated', roomState);
 }
 
-// --- Secure Captain Token Resolution ---
+// SAFEGUARD 6 & 7: Resolve Captain Role securely from token without logging secret values
 async function resolveCaptainRole(token) {
   if (!token) return null;
   if (token === roomState.cap1Token) return 'cap1';
   if (token === roomState.cap2Token) return 'cap2';
-  const dbCap = await dbGetCaptainByToken(roomState.roomId, token);
-  if (dbCap) {
-    return dbCap.captain_number === 1 ? 'cap1' : 'cap2';
+  try {
+    const dbCap = await dbGetCaptainByToken(roomState.roomId || 'main', token);
+    if (dbCap) {
+      return dbCap.captain_number === 1 ? 'cap1' : 'cap2';
+    }
+  } catch (err) {
+    console.error('Error resolving captain role:', err);
   }
   return null;
 }
 
-// --- Draft Pick Execution with Strict Server Validation ---
+// --- Draft Pick Execution with Strict Constraints ---
 function executePlayerPick(player, verifiedRole) {
   if (verifiedRole === 'admin') {
     return { success: false, status: 403, message: 'Admins cannot draft players. Draft Room is in Match Controller & Spectator mode.' };
@@ -267,7 +261,7 @@ function executePlayerPick(player, verifiedRole) {
     ds.currentTurn = pickedByTurn === 1 ? 2 : 1;
   }
 
-  // Authoritative Server Turn Timer Reset (90 seconds)
+  // SAFEGUARD 12: Server-Authoritative Turn Timer (90 seconds)
   const now = Date.now();
   ds.turnStartedAt = now;
   ds.turnEndsAt = now + 90000;
@@ -330,8 +324,8 @@ io.on('connection', (socket) => {
     roomState.players = demo;
     roomState.captain1 = demo[0]; // Deepak
     roomState.captain2 = demo[1]; // Ayaan
-    if (!roomState.cap1Token) roomState.cap1Token = generateSecureToken();
-    if (!roomState.cap2Token) roomState.cap2Token = generateSecureToken();
+    roomState.cap1Token = generateSecureToken();
+    roomState.cap2Token = generateSecureToken();
     await dbSetCaptainToken(roomState.roomId, 1, roomState.captain1.id, roomState.team1Kit, roomState.cap1Token).catch(() => {});
     await dbSetCaptainToken(roomState.roomId, 2, roomState.captain2.id, roomState.team2Kit, roomState.cap2Token).catch(() => {});
     for (const p of demo) {
@@ -349,6 +343,7 @@ io.on('connection', (socket) => {
     roomState.players = [];
     roomState.captain1 = null;
     roomState.captain2 = null;
+    await dbRevokeCaptainTokens(roomState.roomId).catch(() => {});
     broadcastState();
   });
 
@@ -401,6 +396,7 @@ io.on('connection', (socket) => {
     roomState.players = roomState.players.filter(p => p.id !== playerId);
     if (roomState.captain1 && roomState.captain1.id === playerId) roomState.captain1 = null;
     if (roomState.captain2 && roomState.captain2.id === playerId) roomState.captain2 = null;
+    await dbDeletePlayer(playerId).catch(() => {});
     broadcastState();
   });
 
@@ -414,14 +410,14 @@ io.on('connection', (socket) => {
     if (config.matchTitle !== undefined) roomState.matchTitle = config.matchTitle;
     if (config.captain1 !== undefined) {
       roomState.captain1 = config.captain1;
-      if (!roomState.cap1Token) roomState.cap1Token = generateSecureToken();
+      roomState.cap1Token = generateSecureToken();
       if (config.captain1) {
         await dbSetCaptainToken(roomState.roomId, 1, config.captain1.id, roomState.team1Kit, roomState.cap1Token).catch(() => {});
       }
     }
     if (config.captain2 !== undefined) {
       roomState.captain2 = config.captain2;
-      if (!roomState.cap2Token) roomState.cap2Token = generateSecureToken();
+      roomState.cap2Token = generateSecureToken();
       if (config.captain2) {
         await dbSetCaptainToken(roomState.roomId, 2, config.captain2.id, roomState.team2Kit, roomState.cap2Token).catch(() => {});
       }
@@ -444,7 +440,7 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  // --- Authoritative Coin Toss (Requires Valid Captain Token) ---
+  // --- Authoritative Coin Toss (Requires Valid Match-Scoped Captain Token) ---
   socket.on('toss_start_flip', async ({ token, role } = {}) => {
     const verifiedRole = await resolveCaptainRole(token);
     if (!verifiedRole || (verifiedRole !== 'cap1' && verifiedRole !== 'cap2')) {
@@ -472,7 +468,6 @@ io.on('connection', (socket) => {
       outcome,
       initiatedBy: verifiedRole
     });
-    saveStateToFile();
 
     setTimeout(() => {
       roomState.tossState.isFlipping = false;
@@ -666,6 +661,7 @@ io.on('connection', (socket) => {
     }));
     roomState.captain1 = null;
     roomState.captain2 = null;
+    await dbRevokeCaptainTokens(roomState.roomId).catch(() => {});
     broadcastState();
   });
 
@@ -681,6 +677,7 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
+  // SAFEGUARD 13: Final Score Event
   socket.on('save_final_score', async ({ team1Score, team2Score, adminToken } = {}) => {
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
@@ -704,6 +701,7 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
+  // SAFEGUARD 6: Invalidate tokens on match archive
   socket.on('archive_current_match', async ({ adminToken } = {}) => {
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
@@ -765,20 +763,21 @@ io.on('connection', (socket) => {
     const prevUrl = roomState.publicUrl;
     roomState = createInitialState('main');
     roomState.publicUrl = prevUrl;
+    await dbRevokeCaptainTokens(roomState.roomId).catch(() => {});
     broadcastState();
   });
 });
 
 // --- REST API Endpoints ---
 
-// Health Check
+// SAFEGUARD 9: Health Check with Explicit Database Status & Type
 app.get('/api/health', (req, res) => {
+  const dbStatus = getDatabaseStatus();
   res.json({
-    status: 'OK',
+    status: 'ok',
     application: 'SquadDraft PRO',
-    backend: 'OK',
-    database: 'OK',
-    realtime: 'OK',
+    database: dbStatus.database,
+    databaseType: dbStatus.databaseType,
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     playersCount: roomState.players ? roomState.players.length : 0,
@@ -787,7 +786,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Admin Login
+// SAFEGUARD 5: Authoritative Backend Admin Login
 app.post('/api/auth/admin-login', async (req, res) => {
   const { pin } = req.body || {};
   const expectedPin = process.env.ADMIN_PIN || '28160';
@@ -853,7 +852,6 @@ app.post('/api/draft/toss', async (req, res) => {
     outcome,
     initiatedBy: verifiedRole
   });
-  saveStateToFile();
 
   setTimeout(() => {
     roomState.tossState.isFlipping = false;
@@ -877,7 +875,7 @@ app.post('/api/draft/reset-toss', async (req, res) => {
   if (!isAuth) {
     return res.status(403).json({ error: 'Only Admin can reset the coin toss.' });
   }
-  if (roomState.roomStep === 'draft' && roomState.draftState?.draftHistory?.length > 0) {
+  if (!req.body.force && roomState.roomStep === 'draft' && roomState.draftState?.draftHistory?.length > 0) {
     return res.status(400).json({ error: 'Cannot reset coin toss while drafting is in progress.' });
   }
   roomState.tossState = {
@@ -887,12 +885,14 @@ app.post('/api/draft/reset-toss', async (req, res) => {
     winner: null
   };
   roomState.firstPickCaptain = null;
-  roomState.roomStep = 'toss';
+  if (req.body.force) {
+    roomState.roomStep = 'toss';
+  }
   broadcastState();
   return res.json({ success: true, message: 'Coin toss reset successfully.' });
 });
 
-// Final Score Endpoint (Admin Only)
+// SAFEGUARD 13: Final Score Endpoint (Admin Only, non-negative scores)
 app.post('/api/matches/:matchId/score', async (req, res) => {
   const { team1Score, team2Score, adminToken } = req.body || {};
   const isAuth = await dbValidateAdminSession(adminToken);
@@ -927,7 +927,7 @@ app.post('/api/matches/:matchId/score', async (req, res) => {
   return res.json({ success: true, matchScore: roomState.matchScore });
 });
 
-// Public Read-Only Match History
+// SAFEGUARD 8 & 14: Public Read-Only Match History (Sanitized, NO tokens or sessions)
 app.get('/api/history', async (req, res) => {
   try {
     const history = await dbGetPublicHistory();

@@ -14,6 +14,7 @@ export default function TossArena({
   firstPickCaptain,
   tossState,
   myRole,
+  captainToken,
   onProceed,
   onBack
 }) {
@@ -52,10 +53,9 @@ export default function TossArena({
   }, [tossWinner]);
 
   const handleCoinFlip = () => {
-    // Only Captain 1 or Captain 2 can initiate the coin toss
     if (!isCaptain || isFlipping || tossWinner) return;
 
-    socket.emit('toss_start_flip', { role: myRole });
+    socket.emit('toss_start_flip', { token: captainToken, role: myRole });
     sfx.playCoinToss();
   };
 
@@ -68,118 +68,93 @@ export default function TossArena({
             <span className="text-base">👑</span>
             <span>Admin Match Controller (Spectator Mode): Watching Captains Toss the Coin.</span>
           </div>
-          <span className="text-[10px] font-black px-2.5 py-1 bg-amber-200 text-amber-900 rounded-lg border border-amber-300">
-            Admin View
+          <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-black uppercase">
+            Watch Only
           </span>
         </div>
       )}
 
       {isSpectator && (
         <div className="bg-purple-50 border border-purple-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-2.5 text-purple-900 text-xs font-bold">
+          <div className="flex items-center space-x-2.5 text-purple-950 text-xs font-bold">
             <Eye className="w-4 h-4 text-purple-600" />
-            <span>Live Spectator View: Captains are tossing the coin for the 1st pick. Draft starts right after!</span>
+            <span>Spectator Mode: Live Coin Toss broadcast on the pitch.</span>
           </div>
-          <span className="text-[10px] font-black px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg border border-purple-200">
-            View-Only
+          <span className="text-[10px] bg-purple-200 text-purple-900 px-2 py-0.5 rounded font-black uppercase">
+            Read Only
           </span>
         </div>
       )}
 
-      {/* Top Banner with Stadium Lights Effect */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-emerald-600/10 text-center relative overflow-hidden">
-        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-96 h-48 bg-white/15 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black mb-3 shadow-inner">
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>MATCHDAY 3D TOSS ARENA</span>
-        </div>
-
-        <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-          Who Wins The 1st Pick? 🪙
-        </h1>
-        <p className="text-xs sm:text-sm text-emerald-100 max-w-lg mx-auto mt-2 font-medium">
-          Captain <strong className="text-white underline decoration-amber-300">{captain1.name}</strong> vs Captain <strong className="text-white underline decoration-amber-300">{captain2.name}</strong>
-        </p>
-
-        
-      </div>
-
-      {/* Duel Clash Header Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Team 1 Captain Card */}
-        <div className={`p-4 rounded-2xl border-2 transition-all ${
-          tossWinner?.id === captain1.id
-            ? 'bg-emerald-50 border-emerald-500 ring-4 ring-emerald-500/20 shadow-lg shadow-emerald-500/10'
-            : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow-md border ${
-                team1Kit === 'white' ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-white border-slate-800'
-              }`}>
-                <Shirt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">TEAM 1 CAPTAIN</div>
-                <div className="text-sm font-black text-slate-900">{captain1.name}</div>
-                <div className="text-[11px] text-slate-500 font-medium">{team1Name} ({team1Kit === 'white' ? 'White Kit ⚪' : 'Black Kit ⚫'})</div>
-              </div>
-            </div>
-            {tossWinner?.id === captain1.id && (
-              <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-black rounded-lg shadow-md animate-pulse">
-                WINNER 🏆
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Team 2 Captain Card */}
-        <div className={`p-4 rounded-2xl border-2 transition-all ${
-          tossWinner?.id === captain2.id
-            ? 'bg-orange-50 border-orange-500 ring-4 ring-orange-500/20 shadow-lg shadow-orange-500/10'
-            : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow-md border ${
-                team2Kit === 'white' ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-white border-slate-800'
-              }`}>
-                <Shirt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-[10px] font-black uppercase text-orange-600 tracking-wider">TEAM 2 CAPTAIN</div>
-                <div className="text-sm font-black text-slate-900">{captain2.name}</div>
-                <div className="text-[11px] text-slate-500 font-medium">{team2Name} ({team2Kit === 'white' ? 'White Kit ⚪' : 'Black Kit ⚫'})</div>
-              </div>
-            </div>
-            {tossWinner?.id === captain2.id && (
-              <span className="px-3 py-1 bg-orange-500 text-white text-xs font-black rounded-lg shadow-md animate-pulse">
-                WINNER 🏆
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3D Toss Interaction Arena */}
-      <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl">
-        <div className="flex flex-col items-center justify-center space-y-6">
-          {/* Captain Calling Selection */}
-          <div className="w-full max-w-sm bg-slate-50 border border-slate-200 p-4 rounded-2xl text-center shadow-xs">
-            <span className="text-xs text-slate-700 font-bold block mb-2.5">
-              {isCaptain1 ? (
-                <strong className="text-slate-900 font-black">👑 {captain1.name}, Choose Your Coin Call:</strong>
-              ) : (
-                <span>Captain <strong>{captain1.name}</strong> ({team1Name}) Calls:</span>
-              )}
+      {isCaptain && (
+        <div className="bg-emerald-50 border-2 border-emerald-300 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center space-x-2.5 text-emerald-950 text-xs font-bold">
+            <span className="text-base">👑</span>
+            <span>
+              You are {isCaptain1 ? `Captain 1 (${captain1.name})` : `Captain 2 (${captain2.name})`}. Authorized to flip the match coin!
             </span>
+          </div>
+          <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-black uppercase">
+            Active Captain
+          </span>
+        </div>
+      )}
 
-            {isCaptain1 && !isFlipping && !tossWinner ? (
-              <div className="grid grid-cols-2 gap-3">
+      {/* Main Pitch Stadium Toss Card */}
+      <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm relative overflow-hidden">
+        {/* Pitch Green Background Accents */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Duel Clash Header */}
+        <div className="grid grid-cols-3 items-center text-center pb-8 border-b border-slate-100 relative z-10">
+          {/* Captain 1 Badge */}
+          <div className="flex flex-col items-center space-y-2">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 border-2 border-emerald-400 flex items-center justify-center text-emerald-700 shadow-md">
+              <span className="text-2xl sm:text-3xl font-black">👑</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">Captain 1</span>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">{captain1.name}</h3>
+              <span className="text-[11px] text-slate-500 font-semibold">{team1Name} ({team1Kit === 'white' ? 'White ⚪' : 'Black ⚫'})</span>
+            </div>
+          </div>
+
+          {/* VS & Badge */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-lg tracking-widest">
+              VS
+            </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mt-2">
+              Coin Toss Duel
+            </span>
+          </div>
+
+          {/* Captain 2 Badge */}
+          <div className="flex flex-col items-center space-y-2">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-orange-50 border-2 border-orange-400 flex items-center justify-center text-orange-700 shadow-md">
+              <span className="text-2xl sm:text-3xl font-black">👑</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-700 block">Captain 2</span>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">{captain2.name}</h3>
+              <span className="text-[11px] text-slate-500 font-semibold">{team2Name} ({team2Kit === 'white' ? 'White ⚪' : 'Black ⚫'})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Center Pitch: 3D Animated Coin */}
+        <div className="py-10 flex flex-col items-center justify-center space-y-6 relative z-10">
+          {/* Captain 1 Caller Selector */}
+          <div className="text-center space-y-2 max-w-xs w-full">
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
+              {captain1.name}'s Call (Captain 1)
+            </label>
+            {isCaptain1 && !tossWinner && !isFlipping ? (
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => { socket.emit('toss_set_caller_choice', { choice: 'heads', role: myRole }); sfx.playPick(); }}
+                  onClick={() => { socket.emit('toss_set_caller_choice', { choice: 'heads', token: captainToken, role: myRole }); sfx.playPick(); }}
                   className={`py-3 rounded-xl font-black text-xs border transition-all transform active:scale-95 cursor-pointer ${
                     callerChoice === 'heads'
                       ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md'
@@ -190,7 +165,7 @@ export default function TossArena({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { socket.emit('toss_set_caller_choice', { choice: 'tails', role: myRole }); sfx.playPick(); }}
+                  onClick={() => { socket.emit('toss_set_caller_choice', { choice: 'tails', token: captainToken, role: myRole }); sfx.playPick(); }}
                   className={`py-3 rounded-xl font-black text-xs border transition-all transform active:scale-95 cursor-pointer ${
                     callerChoice === 'tails'
                       ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md'
@@ -237,7 +212,6 @@ export default function TossArena({
 
           {/* Role-Specific Action and Status Section */}
           {isAdmin ? (
-            /* Admin View: WAITING FOR CAPTAINS TO COMPLETE THE COIN TOSS (NO FLIP BUTTON) */
             <div className="w-full max-w-md bg-amber-50 border-2 border-amber-300 p-5 rounded-2xl text-center space-y-1.5 shadow-sm">
               <div className="text-[10px] font-black uppercase tracking-widest text-amber-800">
                 STATUS
@@ -256,7 +230,6 @@ export default function TossArena({
               </p>
             </div>
           ) : isSpectator ? (
-            /* Spectator View: Watch Only */
             <div className="w-full max-w-md bg-slate-100 border border-slate-200 p-5 rounded-2xl text-center space-y-1.5 shadow-sm">
               <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 STATUS
@@ -270,7 +243,6 @@ export default function TossArena({
               </div>
             </div>
           ) : (
-            /* Captain View: Authorized Coin Flip Action */
             !tossWinner ? (
               <button
                 onClick={handleCoinFlip}
@@ -278,7 +250,7 @@ export default function TossArena({
                 className="px-10 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 hover:from-amber-300 hover:to-yellow-300 disabled:opacity-50 text-slate-950 font-black text-base shadow-xl shadow-amber-400/30 flex items-center space-x-2 transition-all transform active:scale-95 hover:shadow-2xl cursor-pointer"
               >
                 <Coins className={`w-6 h-6 ${isFlipping ? 'animate-spin' : ''}`} />
-                <span>{isFlipping ? 'Flipping on the Pitch...' : '🪙 Flip 3D Stadium Coin!'}</span>
+                <span>{isFlipping ? 'Flipping on the Pitch...' : '🪙 Flip Match Coin!'}</span>
               </button>
             ) : (
               <div className="text-xs font-bold text-emerald-800 bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-300 shadow-sm">
@@ -319,7 +291,6 @@ export default function TossArena({
         ) : <div />}
 
         <div className="flex items-center space-x-2">
-          {/* Skip Toss is completely removed! */}
           <button
             onClick={onProceed}
             disabled={!tossWinner}

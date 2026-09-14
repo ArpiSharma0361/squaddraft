@@ -7,6 +7,7 @@ import DraftRoom from './components/DraftRoom';
 import SpectatorBroadcast from './components/SpectatorBroadcast';
 import PitchVisualizer from './components/PitchVisualizer';
 import MatchSummaryModal from './components/MatchSummaryModal';
+import MatchHistoryPublic from './components/MatchHistoryPublic';
 import { socket } from './utils/socket';
 import { sfx } from './utils/soundEffects';
 
@@ -20,16 +21,29 @@ export default function App() {
     }
   });
 
-  const setIsAdminLoggedIn = (val) => {
+  const [adminToken, setAdminTokenState] = useState(() => {
+    try {
+      return localStorage.getItem('squaddraft_admin_token') || null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const setIsAdminLoggedIn = (val, token = null) => {
     setIsAdminLoggedInState(val);
     try {
-      if (val) {
+      if (val && token) {
+        setAdminTokenState(token);
+        localStorage.setItem('squaddraft_admin_token', token);
         localStorage.setItem('squaddraft_admin_logged_in', 'true');
-      } else {
+      } else if (!val) {
+        setAdminTokenState(null);
+        localStorage.removeItem('squaddraft_admin_token');
         localStorage.removeItem('squaddraft_admin_logged_in');
       }
     } catch (e) {}
   };
+
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [isConnected, setIsConnected] = useState(socket.connected);
 
@@ -38,11 +52,15 @@ export default function App() {
   const [publicUrl, setPublicUrl] = useState('');
   const [captain1, setCaptain1] = useState(null);
   const [captain2, setCaptain2] = useState(null);
+  const [cap1Token, setCap1Token] = useState(null);
+  const [cap2Token, setCap2Token] = useState(null);
+  const [captainToken, setCaptainToken] = useState(null);
   const [team1Kit, setTeam1Kit] = useState('white');
   const [team2Kit, setTeam2Kit] = useState('black');
   const [team1Name, setTeam1Name] = useState('Team White');
   const [team2Name, setTeam2Name] = useState('Team Black');
   const [firstPickCaptain, setFirstPickCaptain] = useState(null);
+  const [matchScore, setMatchScore] = useState(null);
 
   const [roomStep, setRoomStep] = useState('toss');
   const [finalTeam1, setFinalTeam1] = useState([]);
@@ -63,7 +81,11 @@ export default function App() {
     currentTurn: 1,
     pickNumber: 1,
     draftHistory: [],
-    gkAlert: null
+    gkAlert: null,
+    turnStartedAt: null,
+    turnEndsAt: null,
+    isPaused: false,
+    pausedRemainingMs: 90000
   });
 
   const [roomRole, setRoomRole] = useState('spectator');
@@ -87,12 +109,18 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       const roleParam = params.get('role');
       const viewParam = params.get('view');
+      const tokenParam = params.get('token');
+
+      if (tokenParam) {
+        setCaptainToken(tokenParam);
+      }
 
       let r = (roleParam || '').toLowerCase().trim();
       let v = (viewParam || '').toLowerCase().trim();
 
       // Clean pathname routing
-      if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
+      if (path.includes('/history')) v = 'history';
+      else if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
       else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
       else if (path.includes('/spectator')) r = 'spectator';
       else if (path.includes('/admin')) v = 'admin';
@@ -104,10 +132,13 @@ export default function App() {
       else if (r.includes('spectator')) r = 'spectator';
       else if (r.includes('admin')) r = 'admin';
 
-      if (v.includes('admin')) v = 'admin';
+      if (v.includes('history')) v = 'history';
+      else if (v.includes('admin')) v = 'admin';
       else if (v.includes('register')) v = 'register';
 
-      if (r === 'cap1' || r === 'cap2' || r === 'spectator' || r === 'admin') {
+      if (v === 'history') {
+        setActiveView('history');
+      } else if (r === 'cap1' || r === 'cap2' || r === 'spectator' || r === 'admin') {
         setRoomRole(r);
         setActiveView('room');
       } else if (v === 'admin') {
@@ -142,6 +173,9 @@ export default function App() {
       if (state.publicUrl !== undefined) setPublicUrl(state.publicUrl);
       if (state.captain1 !== undefined) setCaptain1(state.captain1);
       if (state.captain2 !== undefined) setCaptain2(state.captain2);
+      if (state.cap1Token !== undefined) setCap1Token(state.cap1Token);
+      if (state.cap2Token !== undefined) setCap2Token(state.cap2Token);
+      if (state.matchScore !== undefined) setMatchScore(state.matchScore);
       if (state.team1Kit !== undefined) setTeam1Kit(state.team1Kit);
       if (state.team2Kit !== undefined) setTeam2Kit(state.team2Kit);
       if (state.team1Name !== undefined) setTeam1Name(state.team1Name);
@@ -174,7 +208,7 @@ export default function App() {
     if (confirm && !window.confirm('Reset all match data and start clean on all devices?')) {
       return;
     }
-    socket.emit('reset_match');
+    socket.emit('reset_match', { adminToken });
     setActiveView('register');
     sfx.playPick();
   };
@@ -186,6 +220,8 @@ export default function App() {
     setIsExportModalOpen(true);
   };
 
+  const activeCaptainToken = captainToken || (effectiveRole === 'cap1' ? cap1Token : effectiveRole === 'cap2' ? cap2Token : null);
+
   return (
     <div className="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950">
       <Navbar
@@ -195,7 +231,6 @@ export default function App() {
         setIsAdminLoggedIn={setIsAdminLoggedIn}
         isSoundOn={isSoundOn}
         setIsSoundOn={setIsSoundOn}
-        setRoomRole={setRoomRole}
         onReset={handleReset}
         roomStep={roomStep}
         isConnected={isConnected}
@@ -207,6 +242,12 @@ export default function App() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeView === 'history' && (
+          <MatchHistoryPublic
+            onGoToMatch={() => setActiveView(isAdminLoggedIn ? 'admin' : 'register')}
+          />
+        )}
+
         {activeView === 'register' && (
           <PlayerPortal
             players={players}
@@ -223,16 +264,22 @@ export default function App() {
             players={players}
             captain1={captain1}
             captain2={captain2}
+            cap1Token={cap1Token}
+            cap2Token={cap2Token}
             team1Kit={team1Kit}
             team2Kit={team2Kit}
             team1Name={team1Name}
             team2Name={team2Name}
             matchTitle={matchTitle}
             publicUrl={publicUrl}
+            matchScore={matchScore}
             isAdminLoggedIn={isAdminLoggedIn}
+            adminToken={adminToken}
             setIsAdminLoggedIn={setIsAdminLoggedIn}
+            playerDirectory={playerDirectory}
+            matchArchive={matchArchive}
             onLaunchRoom={() => {
-              socket.emit('set_room_step', 'toss');
+              socket.emit('set_room_step', { step: 'toss', adminToken });
               setRoomRole('admin');
               setActiveView('room');
               sfx.playWhistle();
@@ -303,7 +350,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={() => setActiveView('admin')}
-                  className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20"
+                  className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
                 >
                   Go to Match Setup 🔒
                 </button>
@@ -321,6 +368,7 @@ export default function App() {
                     firstPickCaptain={firstPickCaptain}
                     tossState={tossState}
                     myRole={effectiveRole}
+                    captainToken={activeCaptainToken}
                     onProceed={() => {
                       socket.emit('start_draft');
                       sfx.playWhistle();
@@ -354,6 +402,8 @@ export default function App() {
                       firstPickCaptain={firstPickCaptain || captain1}
                       draftState={draftState}
                       myRole={effectiveRole}
+                      captainToken={activeCaptainToken}
+                      adminToken={adminToken}
                       onDraftComplete={handleDraftComplete}
                       isSpectator={false}
                     />
@@ -398,4 +448,3 @@ export default function App() {
     </div>
   );
 }
-
