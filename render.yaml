@@ -1,9 +1,10 @@
-﻿services:
+services:
   - type: web
     name: squaddraft
     runtime: node
     plan: free
     region: singapore
+    autoDeploy: true
     buildCommand: npm install && npm run build
     startCommand: node server.js
     envVars:
