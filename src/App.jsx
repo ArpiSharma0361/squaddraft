@@ -113,6 +113,14 @@ export default function App() {
 
       if (tokenParam) {
         setCaptainToken(tokenParam);
+        try {
+          sessionStorage.setItem('squaddraft_captain_token', tokenParam);
+        } catch (e) {}
+      } else {
+        try {
+          const savedToken = sessionStorage.getItem('squaddraft_captain_token');
+          if (savedToken) setCaptainToken(savedToken);
+        } catch (e) {}
       }
 
       let r = (roleParam || '').toLowerCase().trim();

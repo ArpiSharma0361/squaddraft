@@ -531,10 +531,62 @@ io.on('connection', (socket) => {
       socket.emit('error_message', 'Invalid or missing captain token. Unauthorized pick attempt.');
       return;
     }
-    const result = executePlayerPick(player, verifiedRole);
+    const targetPlayer = player || (roomState.draftState?.availablePlayers || []).find(p => p.id === (player?.id || player));
+    const result = executePlayerPick(targetPlayer, verifiedRole);
     if (!result.success) {
       socket.emit('error_message', result.message);
+    } else {
+      io.emit('player_picked', {
+        player: result.player,
+        pickedByTurn: verifiedRole === 'cap1' ? 1 : 2,
+        currentTurn: roomState.draftState ? roomState.draftState.currentTurn : 1
+      });
     }
+  });
+
+  // Backward compatibility alias for pick_player
+  socket.on('pick_player', async (data) => {
+    const token = data?.token;
+    const verifiedRole = await resolveCaptainRole(token);
+    if (!verifiedRole) {
+      socket.emit('error_message', 'Invalid or missing captain token. Unauthorized pick attempt.');
+      return;
+    }
+    const targetPlayer = data?.player || (roomState.draftState?.availablePlayers || []).find(p => p.id === (data?.playerId || data?.id));
+    const result = executePlayerPick(targetPlayer, verifiedRole);
+    if (!result.success) {
+      socket.emit('error_message', result.message);
+    } else {
+      io.emit('player_picked', {
+        player: result.player,
+        pickedByTurn: verifiedRole === 'cap1' ? 1 : 2,
+        currentTurn: roomState.draftState ? roomState.draftState.currentTurn : 1
+      });
+    }
+  });
+
+  // Backward compatibility alias for undo_last_pick
+  socket.on('undo_last_pick', async (data) => {
+    const adminToken = data?.adminToken;
+    const isAuth = await dbValidateAdminSession(adminToken);
+    if (!isAuth) {
+      socket.emit('error_message', 'Admin authorization required to undo picks.');
+      return;
+    }
+    const ds = roomState.draftState;
+    if (!ds || ds.draftHistory.length === 0) return;
+    const last = ds.draftHistory.pop();
+    ds.team1 = last.team1;
+    ds.team2 = last.team2;
+    ds.availablePlayers = last.availablePlayers;
+    ds.currentTurn = last.currentTurn;
+    ds.pickNumber = last.pickNumber;
+    ds.gkAlert = null;
+    const now = Date.now();
+    ds.turnStartedAt = now;
+    ds.turnEndsAt = now + 90000;
+    ds.isPaused = false;
+    broadcastState();
   });
 
   // Admin Draft Controls: Pause / Resume Turn Timer
@@ -823,6 +875,11 @@ app.post('/api/draft/pick', async (req, res) => {
   if (!result.success) {
     return res.status(result.status || 400).json({ error: result.message });
   }
+  io.emit('player_picked', {
+    player: result.player,
+    pickedByTurn: verifiedRole === 'cap1' ? 1 : 2,
+    currentTurn: roomState.draftState ? roomState.draftState.currentTurn : 1
+  });
   return res.json({ success: true, player: result.player, currentTurn: roomState.draftState.currentTurn });
 });
 

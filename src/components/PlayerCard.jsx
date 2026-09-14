@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Exact position metadata matching Panel 7 & User Guidelines
 export const CARD_POSITION_CONFIG = {
@@ -90,6 +90,11 @@ export default function PlayerCard({
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
 
+  // Auto-reset click state when turn or player identity updates
+  useEffect(() => {
+    setIsClicked(false);
+  }, [player?.id, currentTurn, isMyTurn]);
+
   const rawPos = (player.position || 'MID').toUpperCase();
   const config = CARD_POSITION_CONFIG[rawPos] || CARD_POSITION_CONFIG.ANY;
 
@@ -98,6 +103,9 @@ export default function PlayerCard({
     if (isSpectator || !isMyTurn || isClicked) return;
 
     setIsClicked(true);
+    // Auto-release after 1.5s to prevent permanently locked button on network lag or rejection
+    setTimeout(() => setIsClicked(false), 1500);
+
     if (onSelect) {
       onSelect(player);
     }

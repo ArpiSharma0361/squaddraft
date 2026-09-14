@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users,
   Clock,
@@ -54,9 +54,49 @@ export default function DraftRoom({
   const [searchQuery, setSearchQuery] = useState('');
   const [lastConfirmedPick, setLastConfirmedPick] = useState(null);
   const [recentlyPickedAlert, setRecentlyPickedAlert] = useState(null);
+  const [pickErrorMessage, setPickErrorMessage] = useState(null);
 
   // Server-Authoritative Timer
   const [timeLeft, setTimeLeft] = useState(90);
+
+  // Listen for authoritative server rejection messages
+  useEffect(() => {
+    function onErrorMessage(msg) {
+      console.warn('⚠️ [DraftRoom] Server pick error:', msg);
+      setPickErrorMessage(msg);
+      sfx.playBuzzer();
+      setTimeout(() => setPickErrorMessage(null), 4000);
+    }
+    socket.on('error_message', onErrorMessage);
+    return () => socket.off('error_message', onErrorMessage);
+  }, []);
+
+  // Fallback 3D pick detection: Trigger celebration when draftHistory length increases
+  const prevHistoryLenRef = useRef(draftState?.draftHistory?.length || 0);
+  useEffect(() => {
+    const currentLen = draftState?.draftHistory?.length || 0;
+    if (currentLen > prevHistoryLenRef.current) {
+      const history = draftState?.draftHistory || [];
+      const lastEntry = history[history.length - 1];
+      if (lastEntry) {
+        const wasTeam1 = lastEntry.currentTurn === 1;
+        const currentSquad = wasTeam1 ? (draftState?.team1 || []) : (draftState?.team2 || []);
+        const pickedPlayer = currentSquad[currentSquad.length - 1];
+        if (pickedPlayer) {
+          setLastConfirmedPick({
+            player: pickedPlayer,
+            teamNumber: wasTeam1 ? 1 : 2
+          });
+          setRecentlyPickedAlert({
+            player: pickedPlayer,
+            by: wasTeam1 ? (captain1?.name || 'Captain 1') : (captain2?.name || 'Captain 2')
+          });
+          setTimeout(() => setRecentlyPickedAlert(null), 3500);
+        }
+      }
+    }
+    prevHistoryLenRef.current = currentLen;
+  }, [draftState?.draftHistory, draftState?.team1, draftState?.team2, captain1, captain2]);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -121,21 +161,51 @@ export default function DraftRoom({
     (currentTurn === 2 && isCap2Viewer)
   );
 
-  const handleSelectPlayer = (player) => {
+  const handleSelectPlayer = async (player) => {
     if (isSpectator || isAdmin || !isMyTurn || isPaused) return;
 
+    sfx.playPick();
+
+    // 1. Authoritative Phase 1 socket event expected by server.js
+    socket.emit('draft_pick_player', {
+      player,
+      token: captainToken,
+      role: myRole,
+      pickedByTurn: Number(currentTurn)
+    });
+
+    // 2. Also emit pick_player alias for dual backward compatibility
     socket.emit('pick_player', {
       playerId: player.id,
       player,
       token: captainToken,
-      role: myRole
+      role: myRole,
+      pickedByTurn: Number(currentTurn)
     });
-    sfx.playPick();
+
+    // 3. Fallback REST POST if socket is disconnected
+    if (!socket.connected) {
+      try {
+        await fetch('/api/draft/pick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: captainToken,
+            playerId: player.id,
+            player
+          })
+        });
+      } catch (err) {
+        console.warn('Fallback REST pick error:', err);
+      }
+    }
   };
 
   const handleUndo = () => {
     if (!isAdmin || !canUndo) return;
+    socket.emit('draft_undo', { adminToken });
     socket.emit('undo_last_pick', { adminToken });
+    sfx.playBuzzer();
   };
 
   // Filtered Players
@@ -286,7 +356,7 @@ export default function DraftRoom({
             <span className={`text-sm sm:text-base font-black tracking-wider font-mono ${
               timeLeft < 15 ? 'text-red-400 animate-pulse' : 'text-white'
             }`}>
-              {timeLeft}s
+              {timeLeft > 0 ? `${timeLeft}s` : 'TIME EXPIRED'}
             </span>
           </div>
         </div>
@@ -459,6 +529,22 @@ export default function DraftRoom({
               />
             </div>
           </div>
+
+          {/* Safe User-Facing Error Alert */}
+          {pickErrorMessage && (
+            <div className="p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold flex items-center justify-between animate-in fade-in">
+              <span className="flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{pickErrorMessage}</span>
+              </span>
+              <button
+                onClick={() => setPickErrorMessage(null)}
+                className="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/50 text-white text-[10px] font-black cursor-pointer"
+              >
+                DISMISS
+              </button>
+            </div>
+          )}
 
           {/* Player Cards Grid */}
           {filteredPlayers.length === 0 ? (
