@@ -27,6 +27,7 @@ import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
 import PlayerDirectoryPanel from './PlayerDirectoryPanel';
 import MatchHistoryPanel from './MatchHistoryPanel';
+import { ArenaCanvas } from './arena/ArenaCanvas';
 
 export default function AdminDashboard({
   players,
@@ -638,6 +639,41 @@ export default function AdminDashboard({
                 </p>
               </button>
             </div>
+          </div>
+
+          {/* Live Stadium Arena Broadcast for Match Controller */}
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🏟️</span>
+                <h3 className="font-black text-xs uppercase tracking-wider text-cyan-400">
+                  Stadium Arena Live Broadcast (Control Center)
+                </h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-wider">
+                {roomStep ? roomStep.toUpperCase() : 'ARENA READY'}
+              </span>
+            </div>
+            <ArenaCanvas
+              roomState={{
+                captain1,
+                captain2,
+                team1Name,
+                team2Name,
+                team1Kit,
+                team2Kit,
+                draftState,
+                finalTeam1: roomState?.finalTeam1 || [],
+                finalTeam2: roomState?.finalTeam2 || [],
+                players,
+                matchScore,
+                matchTitle,
+                roomId: 'main'
+              }}
+              activeStage={roomStep === 'toss' ? 'toss' : roomStep === 'draft' ? 'draft' : roomStep === 'finalTeams' ? 'finalTeams' : 'setup'}
+              currentTurn={draftState?.currentTurn || 1}
+              role="admin"
+            />
           </div>
 
           {/* TASK 4: Final Match Score Section */}
