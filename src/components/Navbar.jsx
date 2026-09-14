@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Volume2, VolumeX, RotateCcw, Shield, UserPlus, Flame, Lock, Eye, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, Lock, UserPlus, Flame, Eye, History } from 'lucide-react';
 import { sfx } from '../utils/soundEffects';
 
 export default function Navbar({
@@ -68,7 +68,7 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* View Switcher Tabs (Only visible for Authenticated Admin) */}
+        {/* View Switcher Tabs (Visible for Authenticated Admin) */}
         {isAdminLoggedIn ? (
           <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
             <button
@@ -80,7 +80,7 @@ export default function Navbar({
               }`}
             >
               <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Player Portal</span>
+              <span>Players</span>
             </button>
 
             <button
@@ -92,7 +92,7 @@ export default function Navbar({
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Admin 🔓</span>
+              <span>Admin 🔒</span>
             </button>
 
             <button
@@ -106,18 +106,42 @@ export default function Navbar({
               <Flame className="w-3.5 h-3.5 text-amber-500" />
               <span>Draft Room</span>
             </button>
+
+            <button
+              onClick={() => { setActiveView('history'); sfx.playPick(); }}
+              className={`px-3 py-1.5 text-xs font-black rounded-xl flex items-center space-x-1.5 transition-all ${
+                activeView === 'history'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>History</span>
+            </button>
           </div>
         ) : (
           /* Context Badges for Non-Admin Views */
-          <div className="hidden sm:flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => { setActiveView('history'); sfx.playPick(); }}
+              className={`px-3 py-1.5 text-xs font-black rounded-xl flex items-center space-x-1.5 border transition-all ${
+                activeView === 'history'
+                  ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-purple-600" />
+              <span>Match History</span>
+            </button>
+
             {activeView === 'register' && (
-              <div className="flex items-center space-x-2 bg-slate-50 px-4 py-1.5 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="hidden sm:flex items-center space-x-2 bg-slate-50 px-4 py-1.5 rounded-2xl border border-slate-200 shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-black text-slate-700">Player Registration Portal</span>
               </div>
             )}
             {activeView === 'admin' && (
-              <div className="flex items-center space-x-2 bg-amber-50 px-4 py-1.5 rounded-2xl border border-amber-200 shadow-xs">
+              <div className="hidden sm:flex items-center space-x-2 bg-amber-50 px-4 py-1.5 rounded-2xl border border-amber-200 shadow-xs">
                 <Lock className="w-3.5 h-3.5 text-amber-600" />
                 <span className="text-xs font-black text-amber-800">Stadium Control Login</span>
               </div>
@@ -125,17 +149,17 @@ export default function Navbar({
             {activeView === 'room' && (
               <>
                 {myRole === 'cap1' && (
-                  <div className="flex items-center space-x-2 bg-emerald-50 px-4 py-1.5 rounded-2xl border border-emerald-200 shadow-xs">
+                  <div className="hidden sm:flex items-center space-x-2 bg-emerald-50 px-4 py-1.5 rounded-2xl border border-emerald-200 shadow-xs">
                     <span className="text-xs font-black text-emerald-900">👑 Captain 1 ({captain1 ? captain1.name : 'Captain 1'}) • {team1Kit === 'white' ? 'White Kit ⚪' : 'Black Kit ⚫'}</span>
                   </div>
                 )}
                 {myRole === 'cap2' && (
-                  <div className="flex items-center space-x-2 bg-orange-50 px-4 py-1.5 rounded-2xl border border-orange-200 shadow-xs">
+                  <div className="hidden sm:flex items-center space-x-2 bg-orange-50 px-4 py-1.5 rounded-2xl border border-orange-200 shadow-xs">
                     <span className="text-xs font-black text-orange-900">👑 Captain 2 ({captain2 ? captain2.name : 'Captain 2'}) • {team2Kit === 'white' ? 'White Kit ⚪' : 'Black Kit ⚫'}</span>
                   </div>
                 )}
                 {myRole === 'spectator' && (
-                  <div className="flex items-center space-x-2 bg-purple-50 px-4 py-1.5 rounded-2xl border border-purple-200 shadow-xs">
+                  <div className="hidden sm:flex items-center space-x-2 bg-purple-50 px-4 py-1.5 rounded-2xl border border-purple-200 shadow-xs">
                     <Eye className="w-4 h-4 text-purple-600" />
                     <span className="text-xs font-black text-purple-900">Live Match Broadcast (Watch-Only)</span>
                   </div>
@@ -149,7 +173,7 @@ export default function Navbar({
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             onClick={toggleAudio}
-            className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 transition-all shadow-xs"
+            className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 transition-all shadow-xs cursor-pointer"
             title={isSoundOn ? 'Mute Stadium Audio' : 'Enable Stadium Audio'}
           >
             {isSoundOn ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
@@ -159,7 +183,7 @@ export default function Navbar({
           {isAdminLoggedIn && (
             <button
               onClick={() => onReset(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black transition-all shadow-xs"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black transition-all shadow-xs cursor-pointer"
               title="Admin Match Reset (PIN Authorized)"
             >
               <RotateCcw className="w-3.5 h-3.5 text-rose-600" />

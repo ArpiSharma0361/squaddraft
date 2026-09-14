@@ -1,6 +1,6 @@
 {
   "roomId": "main",
-  "publicUrl": "https://squaddraft.onrender.com",
+  "publicUrl": "https://bc8f9d022b9c2a.lhr.life",
   "players": [
     {
       "id": "p_cap1",
@@ -311,5 +311,96 @@
     }
   },
   "finalTeam1": [],
-  "finalTeam2": []
+  "finalTeam2": [],
+  "playerDirectory": [
+    {
+      "id": "p_cap1",
+      "name": "Deepak",
+      "position": "MID"
+    },
+    {
+      "id": "p_cap2",
+      "name": "Ayaan",
+      "position": "MID"
+    },
+    {
+      "id": "p_gk1",
+      "name": "Rahul",
+      "position": "GK"
+    },
+    {
+      "id": "p_gk2",
+      "name": "Sameer",
+      "position": "GK"
+    },
+    {
+      "id": "p_def1",
+      "name": "Rohan",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def2",
+      "name": "Kunal",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def3",
+      "name": "Vikram",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def4",
+      "name": "Tariq",
+      "position": "DEF"
+    },
+    {
+      "id": "p_mid1",
+      "name": "Arpit",
+      "position": "MID"
+    },
+    {
+      "id": "p_mid2",
+      "name": "Kabir",
+      "position": "MID"
+    },
+    {
+      "id": "p_mid3",
+      "name": "Fahad",
+      "position": "MID"
+    },
+    {
+      "id": "p_mid4",
+      "name": "Adil",
+      "position": "MID"
+    },
+    {
+      "id": "p_fwd1",
+      "name": "Zayan",
+      "position": "FWD"
+    },
+    {
+      "id": "p_fwd2",
+      "name": "Imran",
+      "position": "FWD"
+    },
+    {
+      "id": "p_fwd3",
+      "name": "Zaid",
+      "position": "FWD"
+    },
+    {
+      "id": "p_fwd4",
+      "name": "Rizwan",
+      "position": "FWD"
+    }
+  ],
+  "matchArchive": [],
+  "matchMetadata": {
+    "name": "Sunday Turf Derby 8v8",
+    "date": "14 Sept 2026",
+    "time": "07:00 PM",
+    "venue": "ABC Football Turf",
+    "format": "8v8",
+    "status": "PLAYERS_SETUP"
+  }
 }
