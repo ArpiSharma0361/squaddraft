@@ -13,7 +13,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Argentina",
     flag: "🇦🇷",
     era: "2000s–2020s",
-    image: "/legends/messi.webp"
+    image: "/legends/messi.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "ronaldo",
@@ -24,7 +25,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Portugal",
     flag: "🇵🇹",
     era: "2000s–2020s",
-    image: "/legends/ronaldo.webp"
+    image: "/legends/ronaldo.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "maradona",
@@ -35,7 +37,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Argentina",
     flag: "🇦🇷",
     era: "1970s–1990s",
-    image: "/legends/maradona.webp"
+    image: "/legends/maradona.webp",
+    objectPosition: "center 30%"
   },
   {
     id: "pele",
@@ -46,7 +49,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Brazil",
     flag: "🇧🇷",
     era: "1950s–1970s",
-    image: "/legends/pele.webp"
+    image: "/legends/pele.webp",
+    objectPosition: "center 20%"
   },
   {
     id: "beckham",
@@ -57,7 +61,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "England",
     flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
     era: "1990s–2010s",
-    image: "/legends/beckham.webp"
+    image: "/legends/beckham.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "neymar",
@@ -68,7 +73,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Brazil",
     flag: "🇧🇷",
     era: "2010s–2020s",
-    image: "/legends/neymar.webp"
+    image: "/legends/neymar.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "bale",
@@ -79,7 +85,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Wales",
     flag: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
     era: "2000s–2020s",
-    image: "/legends/bale.webp"
+    image: "/legends/bale.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "zidane",
@@ -90,7 +97,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "France",
     flag: "🇫🇷",
     era: "1980s–2000s",
-    image: "/legends/zidane.webp"
+    image: "/legends/zidane.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "ronaldinho",
@@ -101,7 +109,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Brazil",
     flag: "🇧🇷",
     era: "1990s–2010s",
-    image: "/legends/ronaldinho.webp"
+    image: "/legends/ronaldinho.webp",
+    objectPosition: "center 20%"
   },
   {
     id: "beckenbauer",
@@ -112,7 +121,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Germany",
     flag: "🇩🇪",
     era: "1960s–1980s",
-    image: "/legends/beckenbauer.webp"
+    image: "/legends/beckenbauer.webp",
+    objectPosition: "center 20%"
   },
   {
     id: "buffon",
@@ -123,7 +133,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Italy",
     flag: "🇮🇹",
     era: "1990s–2020s",
-    image: "/legends/buffon.webp"
+    image: "/legends/buffon.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "iniesta",
@@ -134,7 +145,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Spain",
     flag: "🇪🇸",
     era: "2000s–2020s",
-    image: "/legends/iniesta.webp"
+    image: "/legends/iniesta.webp",
+    objectPosition: "center 20%"
   },
   {
     id: "xavi",
@@ -145,7 +157,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Spain",
     flag: "🇪🇸",
     era: "1990s–2010s",
-    image: "/legends/xavi.webp"
+    image: "/legends/xavi.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "roberto-carlos",
@@ -156,7 +169,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Brazil",
     flag: "🇧🇷",
     era: "1990s–2000s",
-    image: "/legends/roberto-carlos.webp"
+    image: "/legends/roberto-carlos.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "maldini",
@@ -167,7 +181,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Italy",
     flag: "🇮🇹",
     era: "1980s–2000s",
-    image: "/legends/maldini.webp"
+    image: "/legends/maldini.webp",
+    objectPosition: "center 25%"
   },
   {
     id: "yamal",
@@ -178,7 +193,8 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Spain",
     flag: "🇪🇸",
     era: "2020s–Present",
-    image: "/legends/yamal.webp"
+    image: "/legends/yamal.webp",
+    objectPosition: "center 20%"
   },
   {
     id: "pedri",
@@ -189,6 +205,7 @@ export const FOOTBALL_LEGENDS = [
     nationality: "Spain",
     flag: "🇪🇸",
     era: "2020s–Present",
-    image: "/legends/pedri.webp"
+    image: "/legends/pedri.webp",
+    objectPosition: "center 45%"
   }
 ];

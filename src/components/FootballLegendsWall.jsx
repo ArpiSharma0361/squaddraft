@@ -65,7 +65,7 @@ export default function FootballLegendsWall() {
                     loading="lazy"
                     decoding="async"
                     onError={() => handleImageError(legend.id)}
-                    className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
+                    style={{ objectPosition: legend.objectPosition || 'center 25%' }} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
                   />
                 ) : (
                   /* Clean Light Fallback Placeholder (Error tolerance if photograph not yet placed) */
