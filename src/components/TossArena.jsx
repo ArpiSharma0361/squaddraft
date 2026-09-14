@@ -102,12 +102,7 @@ export default function TossArena({
           Captain <strong className="text-white underline decoration-amber-300">{captain1.name}</strong> vs Captain <strong className="text-white underline decoration-amber-300">{captain2.name}</strong>
         </p>
 
-        {/* 3D STADIUM COIN TOSS Badge (Single Official Mode - Rock Paper Scissors Removed) */}
-        <div className="flex items-center justify-center space-x-2 mt-5">
-          <div className="px-5 py-2 rounded-xl text-xs font-black bg-amber-400 text-slate-950 shadow-lg ring-2 ring-white">
-            🪙 3D Stadium Coin Toss
-          </div>
-        </div>
+        
       </div>
 
       {/* Duel Clash Header Cards */}

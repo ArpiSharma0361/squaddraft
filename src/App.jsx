@@ -67,7 +67,9 @@ export default function App() {
   });
 
   const [roomRole, setRoomRole] = useState('spectator');
-  const effectiveRole = isAdminLoggedIn ? 'admin' : (roomRole || 'spectator');
+  const effectiveRole = (roomRole === 'cap1' || roomRole === 'cap2')
+    ? roomRole
+    : (roomRole === 'spectator' ? 'spectator' : (isAdminLoggedIn || roomRole === 'admin' ? 'admin' : 'spectator'));
   const [playerDirectory, setPlayerDirectory] = useState([]);
   const [matchArchive, setMatchArchive] = useState([]);
   const [matchMetadata, setMatchMetadata] = useState({
@@ -80,38 +82,44 @@ export default function App() {
   });
 
   useEffect(() => {
-    const path = (window.location.pathname || '').toLowerCase();
-    const params = new URLSearchParams(window.location.search);
-    const roleParam = params.get('role');
-    const viewParam = params.get('view');
+    function parseRoute() {
+      const path = (window.location.pathname || '').toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get('role');
+      const viewParam = params.get('view');
 
-    let r = (roleParam || '').toLowerCase().trim();
-    let v = (viewParam || '').toLowerCase().trim();
+      let r = (roleParam || '').toLowerCase().trim();
+      let v = (viewParam || '').toLowerCase().trim();
 
-    // Clean pathname routing
-    if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
-    else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
-    else if (path.includes('/spectator')) r = 'spectator';
-    else if (path.includes('/admin')) v = 'admin';
-    else if (path.includes('/register')) v = 'register';
+      // Clean pathname routing
+      if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
+      else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
+      else if (path.includes('/spectator')) r = 'spectator';
+      else if (path.includes('/admin')) v = 'admin';
+      else if (path.includes('/register')) v = 'register';
 
-    // Query parameter support (matches existing ?view=registersvg, ?role=cap1svg, etc.)
-    if (r.includes('cap1')) r = 'cap1';
-    else if (r.includes('cap2')) r = 'cap2';
-    else if (r.includes('spectator')) r = 'spectator';
-    else if (r.includes('admin')) r = 'admin';
+      // Query parameter support
+      if (r.includes('cap1')) r = 'cap1';
+      else if (r.includes('cap2')) r = 'cap2';
+      else if (r.includes('spectator')) r = 'spectator';
+      else if (r.includes('admin')) r = 'admin';
 
-    if (v.includes('admin')) v = 'admin';
-    else if (v.includes('register')) v = 'register';
+      if (v.includes('admin')) v = 'admin';
+      else if (v.includes('register')) v = 'register';
 
-    if (r === 'cap1' || r === 'cap2' || r === 'spectator' || r === 'admin') {
-      setRoomRole(r);
-      setActiveView('room');
-    } else if (v === 'admin') {
-      setActiveView('admin');
-    } else if (v === 'register') {
-      setActiveView('register');
+      if (r === 'cap1' || r === 'cap2' || r === 'spectator' || r === 'admin') {
+        setRoomRole(r);
+        setActiveView('room');
+      } else if (v === 'admin') {
+        setActiveView('admin');
+      } else if (v === 'register') {
+        setActiveView('register');
+      }
     }
+
+    parseRoute();
+    window.addEventListener('popstate', parseRoute);
+    return () => window.removeEventListener('popstate', parseRoute);
   }, []);
 
   useEffect(() => {
