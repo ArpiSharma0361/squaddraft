@@ -231,7 +231,11 @@ export default function App() {
   const activeCaptainToken = captainToken || (effectiveRole === 'cap1' ? cap1Token : effectiveRole === 'cap2' ? cap2Token : null);
 
   return (
-    <div className="min-h-screen bg-[#040814] text-slate-100 flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950">
+    <div className={`min-h-screen flex flex-col justify-between transition-colors duration-200 ${
+    activeView === 'register'
+      ? 'bg-[#F8F7F2] text-[#0B2341] light-stadium-theme selection:bg-[#07883F] selection:text-white'
+      : 'bg-[#040814] text-slate-100 selection:bg-emerald-400 selection:text-slate-950'
+  }`}>
       <Navbar
         activeView={activeView}
         setActiveView={setActiveView}
