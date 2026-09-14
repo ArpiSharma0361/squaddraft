@@ -33,13 +33,9 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const [tossState, setTossState] = useState({
-    mode: 'coin',
     isFlipping: false,
     callerChoice: 'heads',
     coinResult: null,
-    cap1Rps: null,
-    cap2Rps: null,
-    rpsResultText: '',
     winner: null
   });
 
@@ -54,6 +50,7 @@ export default function App() {
   });
 
   const [roomRole, setRoomRole] = useState('cap1');
+  const effectiveRole = isAdminLoggedIn ? 'admin' : roomRole;
   const [playerDirectory, setPlayerDirectory] = useState([]);
   const [matchArchive, setMatchArchive] = useState([]);
   const [matchMetadata, setMatchMetadata] = useState({
@@ -176,7 +173,7 @@ export default function App() {
         onReset={handleReset}
         roomStep={roomStep}
         isConnected={isConnected}
-        myRole={roomRole}
+        myRole={effectiveRole}
         captain1={captain1}
         captain2={captain2}
         team1Kit={team1Kit}
@@ -222,7 +219,7 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 p-3.5 rounded-3xl shadow-sm">
               <div className="flex items-center space-x-2">
                 {/* When viewed as Captain 1 */}
-                {roomRole === 'cap1' && (
+                {effectiveRole === 'cap1' && (
                   <div className="flex items-center space-x-2">
                     <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 border-2 border-emerald-300 font-black text-xs shadow-sm flex items-center space-x-1.5">
                       <span>👑 You are Captain 1:</span>
@@ -235,7 +232,7 @@ export default function App() {
                 )}
 
                 {/* When viewed as Captain 2 */}
-                {roomRole === 'cap2' && (
+                {effectiveRole === 'cap2' && (
                   <div className="flex items-center space-x-2">
                     <span className="px-3.5 py-1.5 rounded-xl bg-orange-50 text-orange-900 border-2 border-orange-300 font-black text-xs shadow-sm flex items-center space-x-1.5">
                       <span>👑 You are Captain 2:</span>
@@ -248,7 +245,7 @@ export default function App() {
                 )}
 
                 {/* When viewed as Spectator */}
-                {roomRole === 'spectator' && (
+                {effectiveRole === 'spectator' && (
                   <div className="flex items-center space-x-2">
                     <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-purple-900 border-2 border-purple-200 font-black text-xs shadow-sm flex items-center space-x-1.5">
                       <span>👀 Live Match Broadcast (Spectator View-Only)</span>
@@ -256,42 +253,12 @@ export default function App() {
                   </div>
                 )}
 
-                {/* When viewed as Master Admin (Admin PIN verified) */}
-                {roomRole === 'admin' && (
-                  <div className="flex items-center space-x-1.5 bg-slate-50 p-1 rounded-2xl border border-slate-200 shadow-inner">
-                    <span className="text-xs text-slate-600 font-bold px-2">Role Switcher:</span>
-                    <button
-                      onClick={() => { setRoomRole('cap1'); sfx.playPick(); }}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                        roomRole === 'cap1' ? 'bg-emerald-600 text-white font-black' : 'text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      👑 {captain1 ? captain1.name : 'Cap 1'}
-                    </button>
-                    <button
-                      onClick={() => { setRoomRole('cap2'); sfx.playPick(); }}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                        roomRole === 'cap2' ? 'bg-orange-500 text-white font-black' : 'text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      👑 {captain2 ? captain2.name : 'Cap 2'}
-                    </button>
-                    <button
-                      onClick={() => { setRoomRole('admin'); sfx.playPick(); }}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
-                        roomRole === 'admin' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      🛡️ Admin
-                    </button>
-                    <button
-                      onClick={() => { setRoomRole('spectator'); sfx.playPick(); }}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                        roomRole === 'spectator' ? 'bg-purple-600 text-white font-black' : 'text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      👀 Spectator
-                    </button>
+                {/* When viewed as Master Admin */}
+                {effectiveRole === 'admin' && (
+                  <div className="flex items-center space-x-2">
+                    <span className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-white border border-slate-800 font-black text-xs shadow-sm flex items-center space-x-1.5">
+                      <span>👑 Match Controller (Admin Spectator Mode)</span>
+                    </span>
                   </div>
                 )}
               </div>
@@ -302,7 +269,6 @@ export default function App() {
                 {roomStep === 'pitch' && '🏟️ Step 3: Match Tactical Lineup'}
               </div>
             </div>
-
             {(!captain1 || !captain2) ? (
               <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-4 shadow-sm">
                 <p className="text-sm text-slate-700 font-bold">
@@ -327,7 +293,7 @@ export default function App() {
                     team2Kit={team2Kit}
                     firstPickCaptain={firstPickCaptain}
                     tossState={tossState}
-                    myRole={roomRole}
+                    myRole={effectiveRole}
                     onProceed={() => {
                       socket.emit('start_draft');
                       sfx.playWhistle();
@@ -360,7 +326,7 @@ export default function App() {
                       team2Name={team2Name}
                       firstPickCaptain={firstPickCaptain || captain1}
                       draftState={draftState}
-                      myRole={roomRole}
+                      myRole={effectiveRole}
                       onDraftComplete={handleDraftComplete}
                       isSpectator={false}
                     />

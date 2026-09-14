@@ -107,14 +107,23 @@ export default function DraftRoom({
     }
   }, [availablePlayers.length]);
 
+  const isAdmin = myRole === 'admin';
+  const isCap1Viewer = myRole === 'cap1';
+  const isCap2Viewer = myRole === 'cap2';
+
+  // Admin NEVER acts as Captain 1 or Captain 2 and NEVER receives a draft turn
+  const isMyTurn = !isAdmin && !isSpectator && (
+    (currentTurn === 1 && isCap1Viewer) ||
+    (currentTurn === 2 && isCap2Viewer)
+  );
+
   const handleSelectPlayer = (player) => {
+    if (isAdmin) {
+      alert('Admin is in Spectator / Match Controller mode. Only Captains can draft players.');
+      return;
+    }
     if (isSpectator) return;
     if (!availablePlayers.some(p => p.id === player.id)) return;
-
-    const isMyTurn =
-      myRole === 'admin' ||
-      (currentTurn === 1 && myRole === 'cap1') ||
-      (currentTurn === 2 && myRole === 'cap2');
 
     if (!isMyTurn) {
       alert(`It is currently Captain ${currentTurn}'s turn to pick!`);
@@ -129,7 +138,7 @@ export default function DraftRoom({
     });
 
     sfx.playPick();
-    socket.emit('draft_pick_player', { player, pickedByTurn: currentTurn });
+    socket.emit('draft_pick_player', { player, role: myRole, pickedByTurn: currentTurn });
 
     setTimeout(() => {
       setRecentlyPicked(null);
@@ -137,8 +146,14 @@ export default function DraftRoom({
   };
 
   const handleUndo = () => {
-    if (draftHistory.length === 0 || isSpectator) return;
-    socket.emit('draft_undo');
+    if (draftHistory.length === 0) return;
+    if (isSpectator && !isAdmin) return;
+    if (isAdmin) {
+      if (!window.confirm('Admin Confirmation: Undo the last player pick?')) {
+        return;
+      }
+    }
+    socket.emit('draft_undo', { role: myRole });
     sfx.playBuzzer();
   };
 
@@ -159,15 +174,7 @@ export default function DraftRoom({
   const activeTeamName = currentTurn === 1 ? team1Name : team2Name;
   const activeKit = currentTurn === 1 ? team1Kit : team2Kit;
 
-  const canUndo = draftHistory.length > 0 && !isSpectator;
-
-  const isMyTurn =
-    myRole === 'admin' ||
-    (currentTurn === 1 && myRole === 'cap1') ||
-    (currentTurn === 2 && myRole === 'cap2');
-
-  const isCap1Viewer = myRole === 'cap1';
-  const isCap2Viewer = myRole === 'cap2';
+  const canUndo = draftHistory.length > 0 && (!isSpectator || isAdmin);
 
   // Count positions available
   const posCounts = {
@@ -219,6 +226,51 @@ export default function DraftRoom({
           <span>4. Kickoff & WhatsApp Share</span>
         </div>
       </div>
+
+      {/* Admin Match Management Bar */}
+      {isAdmin && (
+        <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg border border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xl">👑</span>
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-amber-300">
+                Admin Match Controller (Spectator Mode)
+              </div>
+              <div className="text-[11px] text-slate-300">
+                Captains make picks exclusively. You can pause/resume draft, undo picks, or end draft.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center space-x-1.5 border border-slate-700 transition-all cursor-pointer"
+            >
+              {isTimerRunning ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
+              <span>{isTimerRunning ? 'Pause Draft' : 'Resume Draft'}</span>
+            </button>
+            {canUndo && (
+              <button
+                onClick={handleUndo}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold flex items-center space-x-1 border border-slate-700 transition-all cursor-pointer"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>Undo Last Pick</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (window.confirm('Admin: Finalize draft now and view tactical lineup?')) {
+                  onDraftComplete(team1, team2);
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition-all shadow-sm cursor-pointer"
+            >
+              End Draft
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Role Identity & Stadium Bar */}
       <div className={`p-4 rounded-2xl border-2 flex items-center justify-between shadow-sm transition-all ${
@@ -560,7 +612,7 @@ export default function DraftRoom({
           </div>
 
           <div className="pt-3.5 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold">
-            <span>{isSpectator ? '👀 Spectator live broadcast' : isMyTurn ? '⚡ Click any player card to sign them to your squad' : '⏳ Waiting for other captain to pick'}</span>
+            <span>{isSpectator || isAdmin ? (isAdmin ? '👑 Admin Match Controller (Spectating live draft)' : '👀 Spectator live broadcast') : isMyTurn ? '⚡ Click any player card to sign them to your squad' : '⏳ Waiting for other captain to pick'}</span>
             <span className="text-amber-600 font-black">⏱️ 90s Turn Limit</span>
           </div>
         </div>

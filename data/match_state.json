@@ -1,297 +1,315 @@
 {
   "roomId": "main",
-  "publicUrl": "https://64405277a41155.lhr.life",
+  "publicUrl": "https://squaddraft.onrender.com",
   "players": [
     {
-      "id": "p_1ubsm0w",
+      "id": "p_cap1",
       "name": "Deepak",
-      "position": "FWD"
+      "position": "MID"
     },
     {
-      "id": "p_l47k1yp",
+      "id": "p_cap2",
       "name": "Ayaan",
-      "position": "DEF"
-    },
-    {
-      "id": "p_svltuap",
-      "name": "Sujith",
       "position": "MID"
     },
     {
-      "id": "p_tqcbj4w",
-      "name": "Karthik",
-      "position": "DEF"
-    },
-    {
-      "id": "p_k3vexdc",
-      "name": "Ravi metla",
-      "position": "DEF"
-    },
-    {
-      "id": "p_n4dxfcd",
-      "name": "Riteesh",
-      "position": "FWD"
-    },
-    {
-      "id": "p_06p1lev",
-      "name": "Koushik",
-      "position": "DEF"
-    },
-    {
-      "id": "p_vjiull8",
-      "name": "Hriday",
+      "id": "p_gk1",
+      "name": "Rahul",
       "position": "GK"
     },
     {
-      "id": "p_3jc9u17",
-      "name": "Thariff",
+      "id": "p_gk2",
+      "name": "Sameer",
       "position": "GK"
     },
     {
-      "id": "p_c1qf55f",
-      "name": "Himanshu",
+      "id": "p_def1",
+      "name": "Rohan",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def2",
+      "name": "Kunal",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def3",
+      "name": "Vikram",
+      "position": "DEF"
+    },
+    {
+      "id": "p_def4",
+      "name": "Tariq",
+      "position": "DEF"
+    },
+    {
+      "id": "p_mid1",
+      "name": "Arpit",
       "position": "MID"
     },
     {
-      "id": "p_qz803xs",
-      "name": "Puru",
+      "id": "p_mid2",
+      "name": "Kabir",
       "position": "MID"
     },
     {
-      "id": "p_7cxjn48",
-      "name": "Virinchi",
+      "id": "p_mid3",
+      "name": "Fahad",
       "position": "MID"
     },
     {
-      "id": "p_orckbat",
-      "name": "Praduman",
+      "id": "p_mid4",
+      "name": "Adil",
+      "position": "MID"
+    },
+    {
+      "id": "p_fwd1",
+      "name": "Zayan",
       "position": "FWD"
     },
     {
-      "id": "p_fqzcr5n",
-      "name": "Ankur",
-      "position": "MID"
+      "id": "p_fwd2",
+      "name": "Imran",
+      "position": "FWD"
     },
     {
-      "id": "p_ltcz6j1",
-      "name": "Mukku",
-      "position": "ANY"
+      "id": "p_fwd3",
+      "name": "Zaid",
+      "position": "FWD"
     },
     {
-      "id": "p_2rwdte9",
-      "name": "Shiv",
-      "position": "ANY"
+      "id": "p_fwd4",
+      "name": "Rizwan",
+      "position": "FWD"
     }
   ],
   "matchTitle": "Sunday Turf Derby 8v8",
   "captain1": {
-    "id": "p_1ubsm0w",
+    "id": "p_cap1",
     "name": "Deepak",
-    "position": "FWD"
+    "position": "MID"
   },
   "captain2": {
-    "id": "p_3jc9u17",
-    "name": "Thariff",
-    "position": "GK"
+    "id": "p_cap2",
+    "name": "Ayaan",
+    "position": "MID"
   },
-  "team1Kit": "black",
-  "team2Kit": "white",
-  "team1Name": "Tigers",
-  "team2Name": "panthers",
+  "team1Kit": "white",
+  "team2Kit": "black",
+  "team1Name": "Team White",
+  "team2Name": "Team Black",
   "roomStep": "draft",
   "firstPickCaptain": {
-    "id": "p_1ubsm0w",
-    "name": "Deepak",
-    "position": "FWD"
+    "id": "p_cap2",
+    "name": "Ayaan",
+    "position": "MID"
   },
   "tossState": {
-    "mode": "coin",
     "isFlipping": false,
-    "callerChoice": "tails",
+    "callerChoice": "heads",
     "coinResult": "tails",
-    "cap1Rps": null,
-    "cap2Rps": null,
-    "rpsResultText": "",
     "winner": {
-      "id": "p_1ubsm0w",
-      "name": "Deepak",
-      "position": "FWD"
+      "id": "p_cap2",
+      "name": "Ayaan",
+      "position": "MID"
     }
   },
   "draftState": {
     "team1": [
       {
-        "id": "p_1ubsm0w",
+        "id": "p_cap1",
         "name": "Deepak",
-        "position": "FWD"
+        "position": "MID"
+      },
+      {
+        "id": "p_gk2",
+        "name": "Sameer",
+        "position": "GK"
       }
     ],
     "team2": [
       {
-        "id": "p_3jc9u17",
-        "name": "Thariff",
+        "id": "p_cap2",
+        "name": "Ayaan",
+        "position": "MID"
+      },
+      {
+        "id": "p_gk1",
+        "name": "Rahul",
         "position": "GK"
       }
     ],
     "availablePlayers": [
       {
-        "id": "p_l47k1yp",
-        "name": "Ayaan",
+        "id": "p_def1",
+        "name": "Rohan",
         "position": "DEF"
       },
       {
-        "id": "p_svltuap",
-        "name": "Sujith",
+        "id": "p_def2",
+        "name": "Kunal",
+        "position": "DEF"
+      },
+      {
+        "id": "p_def3",
+        "name": "Vikram",
+        "position": "DEF"
+      },
+      {
+        "id": "p_def4",
+        "name": "Tariq",
+        "position": "DEF"
+      },
+      {
+        "id": "p_mid1",
+        "name": "Arpit",
         "position": "MID"
       },
       {
-        "id": "p_tqcbj4w",
-        "name": "Karthik",
-        "position": "DEF"
+        "id": "p_mid2",
+        "name": "Kabir",
+        "position": "MID"
       },
       {
-        "id": "p_k3vexdc",
-        "name": "Ravi metla",
-        "position": "DEF"
+        "id": "p_mid3",
+        "name": "Fahad",
+        "position": "MID"
       },
       {
-        "id": "p_n4dxfcd",
-        "name": "Riteesh",
+        "id": "p_mid4",
+        "name": "Adil",
+        "position": "MID"
+      },
+      {
+        "id": "p_fwd1",
+        "name": "Zayan",
         "position": "FWD"
       },
       {
-        "id": "p_06p1lev",
-        "name": "Koushik",
-        "position": "DEF"
-      },
-      {
-        "id": "p_vjiull8",
-        "name": "Hriday",
-        "position": "GK"
-      },
-      {
-        "id": "p_c1qf55f",
-        "name": "Himanshu",
-        "position": "MID"
-      },
-      {
-        "id": "p_qz803xs",
-        "name": "Puru",
-        "position": "MID"
-      },
-      {
-        "id": "p_7cxjn48",
-        "name": "Virinchi",
-        "position": "MID"
-      },
-      {
-        "id": "p_orckbat",
-        "name": "Praduman",
+        "id": "p_fwd2",
+        "name": "Imran",
         "position": "FWD"
       },
       {
-        "id": "p_fqzcr5n",
-        "name": "Ankur",
-        "position": "MID"
+        "id": "p_fwd3",
+        "name": "Zaid",
+        "position": "FWD"
       },
       {
-        "id": "p_ltcz6j1",
-        "name": "Mukku",
-        "position": "ANY"
-      },
-      {
-        "id": "p_2rwdte9",
-        "name": "Shiv",
-        "position": "ANY"
+        "id": "p_fwd4",
+        "name": "Rizwan",
+        "position": "FWD"
       }
     ],
-    "currentTurn": 1,
-    "pickNumber": 1,
-    "draftHistory": [],
-    "gkAlert": null
+    "currentTurn": 2,
+    "pickNumber": 2,
+    "draftHistory": [
+      {
+        "team1": [
+          {
+            "id": "p_cap1",
+            "name": "Deepak",
+            "position": "MID"
+          }
+        ],
+        "team2": [
+          {
+            "id": "p_cap2",
+            "name": "Ayaan",
+            "position": "MID"
+          }
+        ],
+        "availablePlayers": [
+          {
+            "id": "p_gk1",
+            "name": "Rahul",
+            "position": "GK"
+          },
+          {
+            "id": "p_gk2",
+            "name": "Sameer",
+            "position": "GK"
+          },
+          {
+            "id": "p_def1",
+            "name": "Rohan",
+            "position": "DEF"
+          },
+          {
+            "id": "p_def2",
+            "name": "Kunal",
+            "position": "DEF"
+          },
+          {
+            "id": "p_def3",
+            "name": "Vikram",
+            "position": "DEF"
+          },
+          {
+            "id": "p_def4",
+            "name": "Tariq",
+            "position": "DEF"
+          },
+          {
+            "id": "p_mid1",
+            "name": "Arpit",
+            "position": "MID"
+          },
+          {
+            "id": "p_mid2",
+            "name": "Kabir",
+            "position": "MID"
+          },
+          {
+            "id": "p_mid3",
+            "name": "Fahad",
+            "position": "MID"
+          },
+          {
+            "id": "p_mid4",
+            "name": "Adil",
+            "position": "MID"
+          },
+          {
+            "id": "p_fwd1",
+            "name": "Zayan",
+            "position": "FWD"
+          },
+          {
+            "id": "p_fwd2",
+            "name": "Imran",
+            "position": "FWD"
+          },
+          {
+            "id": "p_fwd3",
+            "name": "Zaid",
+            "position": "FWD"
+          },
+          {
+            "id": "p_fwd4",
+            "name": "Rizwan",
+            "position": "FWD"
+          }
+        ],
+        "currentTurn": 2,
+        "pickNumber": 1
+      }
+    ],
+    "gkAlert": {
+      "pickedPlayer": {
+        "id": "p_gk1",
+        "name": "Rahul",
+        "position": "GK"
+      },
+      "autoGk": {
+        "id": "p_gk2",
+        "name": "Sameer",
+        "position": "GK"
+      },
+      "pickedBy": "Ayaan",
+      "receivedBy": "Deepak"
+    }
   },
-  "finalTeam1": [
-    {
-      "id": "p_1ubsm0w",
-      "name": "Deepak",
-      "position": "FWD"
-    },
-    {
-      "id": "p_k3vexdc",
-      "name": "Ravi metla",
-      "position": "DEF"
-    },
-    {
-      "id": "p_c1qf55f",
-      "name": "Himanshu",
-      "position": "MID"
-    },
-    {
-      "id": "p_2rwdte9",
-      "name": "Shiv",
-      "position": "ANY"
-    },
-    {
-      "id": "p_svltuap",
-      "name": "Sujith",
-      "position": "MID"
-    },
-    {
-      "id": "p_orckbat",
-      "name": "Praduman",
-      "position": "FWD"
-    },
-    {
-      "id": "p_vjiull8",
-      "name": "Hriday",
-      "position": "GK"
-    },
-    {
-      "id": "p_fqzcr5n",
-      "name": "Ankur",
-      "position": "MID"
-    }
-  ],
-  "finalTeam2": [
-    {
-      "id": "p_3jc9u17",
-      "name": "Thariff",
-      "position": "GK"
-    },
-    {
-      "id": "p_l47k1yp",
-      "name": "Ayaan",
-      "position": "DEF"
-    },
-    {
-      "id": "p_n4dxfcd",
-      "name": "Riteesh",
-      "position": "FWD"
-    },
-    {
-      "id": "p_tqcbj4w",
-      "name": "Karthik",
-      "position": "DEF"
-    },
-    {
-      "id": "p_qz803xs",
-      "name": "Puru",
-      "position": "MID"
-    },
-    {
-      "id": "p_06p1lev",
-      "name": "Koushik",
-      "position": "DEF"
-    },
-    {
-      "id": "p_ltcz6j1",
-      "name": "Mukku",
-      "position": "ANY"
-    },
-    {
-      "id": "p_7cxjn48",
-      "name": "Virinchi",
-      "position": "MID"
-    }
-  ]
+  "finalTeam1": [],
+  "finalTeam2": []
 }

@@ -56,13 +56,9 @@ function createInitialState(roomId = 'main') {
     roomStep: 'toss',
     firstPickCaptain: null,
     tossState: {
-      mode: 'coin',
       isFlipping: false,
       callerChoice: 'heads',
       coinResult: null,
-      cap1Rps: null,
-      cap2Rps: null,
-      rpsResultText: '',
       winner: null
     },
     draftState: {
@@ -135,6 +131,109 @@ function broadcastState() {
   io.emit('room_state_updated', roomState);
 }
 
+
+
+function executePlayerPick(player, role) {
+  if (role === 'admin') {
+    return { success: false, status: 403, message: 'Admins cannot draft players. Draft Room is in Match Controller & Spectator mode.' };
+  }
+  if (role === 'spectator') {
+    return { success: false, status: 403, message: 'Spectators cannot draft players.' };
+  }
+  if (role !== 'cap1' && role !== 'cap2') {
+    return { success: false, status: 403, message: 'Invalid captain role. Only authorized captains can pick players.' };
+  }
+  if (roomState.roomStep !== 'draft') {
+    return { success: false, status: 400, message: 'Draft is not active.' };
+  }
+
+  const ds = roomState.draftState;
+  if (!ds) {
+    return { success: false, status: 400, message: 'Draft state not initialized.' };
+  }
+
+  const expectedRole = ds.currentTurn === 1 ? 'cap1' : 'cap2';
+  if (role !== expectedRole) {
+    return { success: false, status: 400, message: 'It is Captain ' + ds.currentTurn + "'s turn to pick." };
+  }
+
+  const availablePlayer = ds.availablePlayers.find(p => p.id === player.id);
+  if (!availablePlayer) {
+    return { success: false, status: 400, message: 'Selected player is not available.' };
+  }
+
+  const pickedByTurn = ds.currentTurn;
+
+  // Save history for Undo/Unpick
+  ds.draftHistory.push({
+    team1: [...ds.team1],
+    team2: [...ds.team2],
+    availablePlayers: [...ds.availablePlayers],
+    currentTurn: ds.currentTurn,
+    pickNumber: ds.pickNumber
+  });
+
+  const isGK = availablePlayer.position === 'GK';
+  const totalMatchGKs = roomState.players.filter(p => p.position === 'GK').length;
+  const remainingGKs = ds.availablePlayers.filter(p => p.position === 'GK' && p.id !== availablePlayer.id);
+
+  let autoAssignedGk = null;
+  let isGkBalanced = false;
+  if (totalMatchGKs === 2 && isGK && remainingGKs.length === 1) {
+    autoAssignedGk = remainingGKs[0];
+    isGkBalanced = true;
+  }
+
+  let newTeam1 = [...ds.team1];
+  let newTeam2 = [...ds.team2];
+  let newPool = ds.availablePlayers.filter(p => p.id !== availablePlayer.id);
+
+  if (pickedByTurn === 1) {
+    newTeam1.push(availablePlayer);
+    if (autoAssignedGk) {
+      newTeam2.push(autoAssignedGk);
+      newPool = newPool.filter(p => p.id !== autoAssignedGk.id);
+      ds.gkAlert = {
+        pickedPlayer: availablePlayer,
+        autoGk: autoAssignedGk,
+        pickedBy: roomState.captain1 ? roomState.captain1.name : 'Captain 1',
+        receivedBy: roomState.captain2 ? roomState.captain2.name : 'Captain 2'
+      };
+    }
+  } else {
+    newTeam2.push(availablePlayer);
+    if (autoAssignedGk) {
+      newTeam1.push(autoAssignedGk);
+      newPool = newPool.filter(p => p.id !== autoAssignedGk.id);
+      ds.gkAlert = {
+        pickedPlayer: availablePlayer,
+        autoGk: autoAssignedGk,
+        pickedBy: roomState.captain2 ? roomState.captain2.name : 'Captain 2',
+        receivedBy: roomState.captain1 ? roomState.captain1.name : 'Captain 1'
+      };
+    }
+  }
+
+  ds.team1 = newTeam1;
+  ds.team2 = newTeam2;
+  ds.availablePlayers = newPool;
+  ds.pickNumber += 1;
+
+  if (isGkBalanced) {
+    ds.currentTurn = pickedByTurn;
+  } else {
+    ds.currentTurn = pickedByTurn === 1 ? 2 : 1;
+  }
+
+  if (newPool.length === 0) {
+    roomState.finalTeam1 = newTeam1;
+    roomState.finalTeam2 = newTeam2;
+    roomState.roomStep = 'pitch';
+  }
+
+  broadcastState();
+  return { success: true, player: availablePlayer, currentTurn: ds.currentTurn };
+}
 
 io.on('connection', (socket) => {
   socket.emit('room_state_updated', roomState);
@@ -225,44 +324,67 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  socket.on('toss_start_flip', () => {
+  socket.on('toss_start_flip', ({ role } = {}) => {
+    // 1. Role Authorization: Only Captain 1 or Captain 2 can initiate the coin toss
+    if (role !== 'cap1' && role !== 'cap2') {
+      socket.emit('error_message', 'Only authorized captains can flip the coin. Admin and Spectator can only watch.');
+      return;
+    }
+
+    // 2. Prevent repeat toss if already completed or in-progress
+    if (roomState.tossState.winner) {
+      socket.emit('error_message', 'The coin toss has already completed.');
+      return;
+    }
+    if (roomState.tossState.isFlipping) {
+      return;
+    }
+
+    // 3. Authoritative outcome generated ONCE on backend
+    const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
+    const callerChoice = roomState.tossState.callerChoice || 'heads';
+    const winner = outcome === callerChoice ? roomState.captain1 : roomState.captain2;
+
     roomState.tossState.isFlipping = true;
     roomState.tossState.coinResult = null;
-    io.emit('toss_flipping_started', { callerChoice: roomState.tossState.callerChoice });
+
+    io.emit('toss_flipping_started', {
+      callerChoice,
+      outcome,
+      initiatedBy: role
+    });
+    saveStateToFile();
+
+    // 4. Server timer (2400ms matches client 3D animation)
+    setTimeout(() => {
+      roomState.tossState.isFlipping = false;
+      roomState.tossState.coinResult = outcome;
+      roomState.tossState.winner = winner;
+      roomState.firstPickCaptain = winner;
+      if (roomState.draftState) {
+        roomState.draftState.currentTurn = (winner && roomState.captain1 && winner.id === roomState.captain1.id) ? 1 : 2;
+      }
+      broadcastState();
+    }, 2400);
   });
 
-  socket.on('toss_set_caller_choice', (choice) => {
+  socket.on('toss_set_caller_choice', (data) => {
+    const choice = typeof data === 'string' ? data : data?.choice;
+    const role = typeof data === 'object' ? data?.role : null;
+    if (role && role !== 'cap1') return;
     roomState.tossState.callerChoice = choice;
     broadcastState();
   });
 
-  socket.on('toss_set_mode', (mode) => {
-    roomState.tossState.mode = mode;
-    broadcastState();
-  });
-
-  socket.on('toss_finish_flip', ({ outcome, winner }) => {
-    roomState.tossState.isFlipping = false;
-    roomState.tossState.coinResult = outcome;
-    roomState.tossState.winner = winner;
-    roomState.firstPickCaptain = winner;
-    broadcastState();
-  });
-
-  socket.on('toss_rps_play', ({ cap1Choice, cap2Choice, resultText, winner }) => {
-    roomState.tossState.cap1Rps = cap1Choice;
-    roomState.tossState.cap2Rps = cap2Choice;
-    roomState.tossState.rpsResultText = resultText;
-    if (winner) {
-      roomState.tossState.winner = winner;
-      roomState.firstPickCaptain = winner;
-    }
-    broadcastState();
-  });
-
   socket.on('start_draft', () => {
+    if (!roomState.tossState?.winner) {
+      console.warn('Cannot start draft without toss winner');
+      return;
+    }
     const c1 = roomState.captain1;
     const c2 = roomState.captain2;
+    if (!c1 || !c2) return;
+
     const initialTurn = (roomState.firstPickCaptain && roomState.firstPickCaptain.id === c1.id) ? 1 : 2;
     const available = roomState.players.filter(p => p.id !== c1.id && p.id !== c2.id);
 
@@ -279,81 +401,13 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  // Draft Pick Player with Smart GK Balancing & Turn Retention for Toss Winner
-  socket.on('draft_pick_player', ({ player, pickedByTurn }) => {
-    const ds = roomState.draftState;
-    if (!ds.availablePlayers.some(p => p.id === player.id)) return;
-
-    // Save history for Undo/Unpick
-    ds.draftHistory.push({
-      team1: [...ds.team1],
-      team2: [...ds.team2],
-      availablePlayers: [...ds.availablePlayers],
-      currentTurn: ds.currentTurn,
-      pickNumber: ds.pickNumber
-    });
-
-    const isGK = player.position === 'GK';
-    const totalMatchGKs = roomState.players.filter(p => p.position === 'GK').length;
-    const remainingGKs = ds.availablePlayers.filter(p => p.position === 'GK' && p.id !== player.id);
-
-    let autoAssignedGk = null;
-    let isGkBalanced = false;
-    if (totalMatchGKs === 2 && isGK && remainingGKs.length === 1) {
-      autoAssignedGk = remainingGKs[0];
-      isGkBalanced = true;
+  // Draft Pick Player with Role Authorization
+  socket.on('draft_pick_player', ({ player, role, pickedByTurn }) => {
+    const effectiveRole = role || (pickedByTurn === 1 ? 'cap1' : pickedByTurn === 2 ? 'cap2' : null);
+    const result = executePlayerPick(player, effectiveRole);
+    if (!result.success) {
+      socket.emit('error_message', result.message);
     }
-
-    let newTeam1 = [...ds.team1];
-    let newTeam2 = [...ds.team2];
-    let newPool = ds.availablePlayers.filter(p => p.id !== player.id);
-
-    if (pickedByTurn === 1) {
-      newTeam1.push(player);
-      if (autoAssignedGk) {
-        newTeam2.push(autoAssignedGk);
-        newPool = newPool.filter(p => p.id !== autoAssignedGk.id);
-        ds.gkAlert = {
-          pickedPlayer: player,
-          autoGk: autoAssignedGk,
-          pickedBy: roomState.captain1.name,
-          receivedBy: roomState.captain2.name
-        };
-      }
-    } else {
-      newTeam2.push(player);
-      if (autoAssignedGk) {
-        newTeam1.push(autoAssignedGk);
-        newPool = newPool.filter(p => p.id !== autoAssignedGk.id);
-        ds.gkAlert = {
-          pickedPlayer: player,
-          autoGk: autoAssignedGk,
-          pickedBy: roomState.captain2.name,
-          receivedBy: roomState.captain1.name
-        };
-      }
-    }
-
-    ds.team1 = newTeam1;
-    ds.team2 = newTeam2;
-    ds.availablePlayers = newPool;
-    ds.pickNumber += 1;
-
-    // Special Rule: If 2 GKs were in pool and toss winner picked GK #1 (auto-sending GK #2 to opponent),
-    // the turn REMAINS with the toss winner so they can now make their first squad pick!
-    if (isGkBalanced) {
-      ds.currentTurn = pickedByTurn;
-    } else {
-      ds.currentTurn = pickedByTurn === 1 ? 2 : 1;
-    }
-
-    if (newPool.length === 0) {
-      roomState.finalTeam1 = newTeam1;
-      roomState.finalTeam2 = newTeam2;
-      roomState.roomStep = 'pitch';
-    }
-
-    broadcastState();
   });
 
   // Undo / Unpick action (usable by both captains and admin)
@@ -498,6 +552,94 @@ app.get('/api/health', (req, res) => {
     roomStep: roomState.roomStep,
     matchTitle: roomState.matchTitle
   });
+});
+
+
+app.post('/api/draft/pick', (req, res) => {
+  const { role, playerId, player } = req.body || {};
+  const targetPlayer = player || (roomState.draftState?.availablePlayers || []).find(p => p.id === playerId);
+  
+  if (role === 'admin') {
+    return res.status(403).json({ error: 'Admins cannot draft players. Draft Room is in Match Controller & Spectator mode.' });
+  }
+  if (role === 'spectator') {
+    return res.status(403).json({ error: 'Spectators cannot draft players.' });
+  }
+  if (role !== 'cap1' && role !== 'cap2') {
+    return res.status(403).json({ error: 'Invalid captain role. Only authorized captains can pick players.' });
+  }
+  if (!targetPlayer) {
+    return res.status(400).json({ error: 'Player not found or not provided in available pool.' });
+  }
+
+  const result = executePlayerPick(targetPlayer, role);
+  if (!result.success) {
+    return res.status(result.status || 400).json({ error: result.message });
+  }
+  return res.json({ success: true, player: result.player, currentTurn: roomState.draftState.currentTurn });
+});
+
+app.post('/api/draft/toss', (req, res) => {
+  const { role } = req.body || {};
+  if (role === 'admin' || role === 'spectator') {
+    return res.status(403).json({ error: 'Admins and spectators cannot initiate the coin toss.' });
+  }
+  if (role !== 'cap1' && role !== 'cap2') {
+    return res.status(403).json({ error: 'Only Captain 1 or Captain 2 can initiate the coin toss.' });
+  }
+  if (roomState.tossState.winner) {
+    return res.status(400).json({ error: 'The coin toss has already been completed.' });
+  }
+  if (roomState.tossState.isFlipping) {
+    return res.status(400).json({ error: 'Coin is currently flipping.' });
+  }
+
+  const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
+  const callerChoice = roomState.tossState.callerChoice || 'heads';
+  const winner = outcome === callerChoice ? roomState.captain1 : roomState.captain2;
+
+  roomState.tossState.isFlipping = true;
+  roomState.tossState.coinResult = null;
+
+  io.emit('toss_flipping_started', {
+    callerChoice,
+    outcome,
+    initiatedBy: role
+  });
+  saveStateToFile();
+
+  setTimeout(() => {
+    roomState.tossState.isFlipping = false;
+    roomState.tossState.coinResult = outcome;
+    roomState.tossState.winner = winner;
+    roomState.firstPickCaptain = winner;
+    if (roomState.draftState) {
+      roomState.draftState.currentTurn = (winner && roomState.captain1 && winner.id === roomState.captain1.id) ? 1 : 2;
+    }
+    broadcastState();
+  }, 2400);
+
+  return res.json({ success: true, message: 'Coin toss started authoritatively on server.' });
+});
+
+app.post('/api/draft/reset-toss', (req, res) => {
+  const { role } = req.body || {};
+  if (role !== 'admin') {
+    return res.status(403).json({ error: 'Only Admin can reset the coin toss.' });
+  }
+  if (roomState.roomStep === 'draft' && roomState.draftState?.draftHistory?.length > 0) {
+    return res.status(400).json({ error: 'Cannot reset coin toss while drafting is in progress.' });
+  }
+  roomState.tossState = {
+    isFlipping: false,
+    callerChoice: 'heads',
+    coinResult: null,
+    winner: null
+  };
+  roomState.firstPickCaptain = null;
+  roomState.roomStep = 'toss';
+  broadcastState();
+  return res.json({ success: true, message: 'Coin toss reset successfully.' });
 });
 
 app.get('/api/state', (req, res) => {
