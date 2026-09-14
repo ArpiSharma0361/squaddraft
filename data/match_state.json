@@ -1,35 +1,297 @@
 {
   "roomId": "main",
-  "publicUrl": "https://1b7751205dc23b.lhr.life",
-  "players": [],
+  "publicUrl": "https://64405277a41155.lhr.life",
+  "players": [
+    {
+      "id": "p_1ubsm0w",
+      "name": "Deepak",
+      "position": "FWD"
+    },
+    {
+      "id": "p_l47k1yp",
+      "name": "Ayaan",
+      "position": "DEF"
+    },
+    {
+      "id": "p_svltuap",
+      "name": "Sujith",
+      "position": "MID"
+    },
+    {
+      "id": "p_tqcbj4w",
+      "name": "Karthik",
+      "position": "DEF"
+    },
+    {
+      "id": "p_k3vexdc",
+      "name": "Ravi metla",
+      "position": "DEF"
+    },
+    {
+      "id": "p_n4dxfcd",
+      "name": "Riteesh",
+      "position": "FWD"
+    },
+    {
+      "id": "p_06p1lev",
+      "name": "Koushik",
+      "position": "DEF"
+    },
+    {
+      "id": "p_vjiull8",
+      "name": "Hriday",
+      "position": "GK"
+    },
+    {
+      "id": "p_3jc9u17",
+      "name": "Thariff",
+      "position": "GK"
+    },
+    {
+      "id": "p_c1qf55f",
+      "name": "Himanshu",
+      "position": "MID"
+    },
+    {
+      "id": "p_qz803xs",
+      "name": "Puru",
+      "position": "MID"
+    },
+    {
+      "id": "p_7cxjn48",
+      "name": "Virinchi",
+      "position": "MID"
+    },
+    {
+      "id": "p_orckbat",
+      "name": "Praduman",
+      "position": "FWD"
+    },
+    {
+      "id": "p_fqzcr5n",
+      "name": "Ankur",
+      "position": "MID"
+    },
+    {
+      "id": "p_ltcz6j1",
+      "name": "Mukku",
+      "position": "ANY"
+    },
+    {
+      "id": "p_2rwdte9",
+      "name": "Shiv",
+      "position": "ANY"
+    }
+  ],
   "matchTitle": "Sunday Turf Derby 8v8",
-  "captain1": null,
-  "captain2": null,
-  "team1Kit": "white",
-  "team2Kit": "black",
-  "team1Name": "Team White",
-  "team2Name": "Team Black",
-  "roomStep": "toss",
-  "firstPickCaptain": null,
+  "captain1": {
+    "id": "p_1ubsm0w",
+    "name": "Deepak",
+    "position": "FWD"
+  },
+  "captain2": {
+    "id": "p_3jc9u17",
+    "name": "Thariff",
+    "position": "GK"
+  },
+  "team1Kit": "black",
+  "team2Kit": "white",
+  "team1Name": "Tigers",
+  "team2Name": "panthers",
+  "roomStep": "draft",
+  "firstPickCaptain": {
+    "id": "p_1ubsm0w",
+    "name": "Deepak",
+    "position": "FWD"
+  },
   "tossState": {
     "mode": "coin",
     "isFlipping": false,
-    "callerChoice": "heads",
-    "coinResult": null,
+    "callerChoice": "tails",
+    "coinResult": "tails",
     "cap1Rps": null,
     "cap2Rps": null,
     "rpsResultText": "",
-    "winner": null
+    "winner": {
+      "id": "p_1ubsm0w",
+      "name": "Deepak",
+      "position": "FWD"
+    }
   },
   "draftState": {
-    "team1": [],
-    "team2": [],
-    "availablePlayers": [],
+    "team1": [
+      {
+        "id": "p_1ubsm0w",
+        "name": "Deepak",
+        "position": "FWD"
+      }
+    ],
+    "team2": [
+      {
+        "id": "p_3jc9u17",
+        "name": "Thariff",
+        "position": "GK"
+      }
+    ],
+    "availablePlayers": [
+      {
+        "id": "p_l47k1yp",
+        "name": "Ayaan",
+        "position": "DEF"
+      },
+      {
+        "id": "p_svltuap",
+        "name": "Sujith",
+        "position": "MID"
+      },
+      {
+        "id": "p_tqcbj4w",
+        "name": "Karthik",
+        "position": "DEF"
+      },
+      {
+        "id": "p_k3vexdc",
+        "name": "Ravi metla",
+        "position": "DEF"
+      },
+      {
+        "id": "p_n4dxfcd",
+        "name": "Riteesh",
+        "position": "FWD"
+      },
+      {
+        "id": "p_06p1lev",
+        "name": "Koushik",
+        "position": "DEF"
+      },
+      {
+        "id": "p_vjiull8",
+        "name": "Hriday",
+        "position": "GK"
+      },
+      {
+        "id": "p_c1qf55f",
+        "name": "Himanshu",
+        "position": "MID"
+      },
+      {
+        "id": "p_qz803xs",
+        "name": "Puru",
+        "position": "MID"
+      },
+      {
+        "id": "p_7cxjn48",
+        "name": "Virinchi",
+        "position": "MID"
+      },
+      {
+        "id": "p_orckbat",
+        "name": "Praduman",
+        "position": "FWD"
+      },
+      {
+        "id": "p_fqzcr5n",
+        "name": "Ankur",
+        "position": "MID"
+      },
+      {
+        "id": "p_ltcz6j1",
+        "name": "Mukku",
+        "position": "ANY"
+      },
+      {
+        "id": "p_2rwdte9",
+        "name": "Shiv",
+        "position": "ANY"
+      }
+    ],
     "currentTurn": 1,
     "pickNumber": 1,
     "draftHistory": [],
     "gkAlert": null
   },
-  "finalTeam1": [],
-  "finalTeam2": []
+  "finalTeam1": [
+    {
+      "id": "p_1ubsm0w",
+      "name": "Deepak",
+      "position": "FWD"
+    },
+    {
+      "id": "p_k3vexdc",
+      "name": "Ravi metla",
+      "position": "DEF"
+    },
+    {
+      "id": "p_c1qf55f",
+      "name": "Himanshu",
+      "position": "MID"
+    },
+    {
+      "id": "p_2rwdte9",
+      "name": "Shiv",
+      "position": "ANY"
+    },
+    {
+      "id": "p_svltuap",
+      "name": "Sujith",
+      "position": "MID"
+    },
+    {
+      "id": "p_orckbat",
+      "name": "Praduman",
+      "position": "FWD"
+    },
+    {
+      "id": "p_vjiull8",
+      "name": "Hriday",
+      "position": "GK"
+    },
+    {
+      "id": "p_fqzcr5n",
+      "name": "Ankur",
+      "position": "MID"
+    }
+  ],
+  "finalTeam2": [
+    {
+      "id": "p_3jc9u17",
+      "name": "Thariff",
+      "position": "GK"
+    },
+    {
+      "id": "p_l47k1yp",
+      "name": "Ayaan",
+      "position": "DEF"
+    },
+    {
+      "id": "p_n4dxfcd",
+      "name": "Riteesh",
+      "position": "FWD"
+    },
+    {
+      "id": "p_tqcbj4w",
+      "name": "Karthik",
+      "position": "DEF"
+    },
+    {
+      "id": "p_qz803xs",
+      "name": "Puru",
+      "position": "MID"
+    },
+    {
+      "id": "p_06p1lev",
+      "name": "Koushik",
+      "position": "DEF"
+    },
+    {
+      "id": "p_ltcz6j1",
+      "name": "Mukku",
+      "position": "ANY"
+    },
+    {
+      "id": "p_7cxjn48",
+      "name": "Virinchi",
+      "position": "MID"
+    }
+  ]
 }

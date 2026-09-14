@@ -54,6 +54,16 @@ export default function App() {
   });
 
   const [roomRole, setRoomRole] = useState('cap1');
+  const [playerDirectory, setPlayerDirectory] = useState([]);
+  const [matchArchive, setMatchArchive] = useState([]);
+  const [matchMetadata, setMatchMetadata] = useState({
+    name: 'Sunday Turf Football',
+    date: new Date().toLocaleDateString('en-GB'),
+    time: '07:00 PM',
+    venue: 'ABC Football Turf',
+    format: '8v8',
+    status: 'PLAYERS_SETUP'
+  });
 
   useEffect(() => {
     const path = (window.location.pathname || '').toLowerCase();
@@ -103,6 +113,9 @@ export default function App() {
     function onStateUpdated(state) {
       if (!state) return;
       if (state.players !== undefined) setPlayers(state.players);
+      if (state.playerDirectory !== undefined) setPlayerDirectory(state.playerDirectory);
+      if (state.matchArchive !== undefined) setMatchArchive(state.matchArchive);
+      if (state.matchMetadata !== undefined) setMatchMetadata(state.matchMetadata);
       if (state.matchTitle !== undefined) setMatchTitle(state.matchTitle);
       if (state.publicUrl !== undefined) setPublicUrl(state.publicUrl);
       if (state.captain1 !== undefined) setCaptain1(state.captain1);

@@ -90,7 +90,25 @@ function loadStateFromFile() {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf8');
       const loaded = JSON.parse(raw);
-      console.log('📦 Loaded persistent match state from disk with', loaded.players?.length || 0, 'players.');
+            if (!loaded.playerDirectory || loaded.playerDirectory.length === 0) {
+        loaded.playerDirectory = (loaded.players && loaded.players.length > 0)
+          ? JSON.parse(JSON.stringify(loaded.players))
+          : [];
+      }
+      if (!loaded.matchArchive) {
+        loaded.matchArchive = [];
+      }
+      if (!loaded.matchMetadata) {
+        loaded.matchMetadata = {
+          name: loaded.matchTitle || 'Sunday Turf Football',
+          date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+          time: '07:00 PM',
+          venue: 'ABC Football Turf',
+          format: '8v8',
+          status: 'PLAYERS_SETUP'
+        };
+      }
+      console.log('📦 Loaded match state from disk: ' + (loaded.players?.length || 0) + ' active players, ' + (loaded.playerDirectory?.length || 0) + ' directory players.');
       return loaded;
     }
   } catch (err) {
@@ -357,6 +375,106 @@ io.on('connection', (socket) => {
       roomState.draftState.gkAlert = null;
       broadcastState();
     }
+  });
+
+  
+  // --- Permanent Player Directory Events ---
+  socket.on('directory_add_player', (player) => {
+    if (!roomState.playerDirectory) roomState.playerDirectory = [];
+    if (!roomState.playerDirectory.some(p => p.name.toLowerCase() === player.name.toLowerCase())) {
+      roomState.playerDirectory.push({
+        id: player.id || ('dir_' + Date.now()),
+        name: player.name.trim(),
+        position: player.position || 'MID',
+        secondaryPosition: player.secondaryPosition || '',
+        active: true
+      });
+      broadcastState();
+    }
+  });
+
+  socket.on('directory_bulk_add', (playersList) => {
+    if (!roomState.playerDirectory) roomState.playerDirectory = [];
+    playersList.forEach(p => {
+      if (p.name && !roomState.playerDirectory.some(x => x.name.toLowerCase() === p.name.trim().toLowerCase())) {
+        roomState.playerDirectory.push({
+          id: 'dir_' + Date.now() + Math.random().toString(36).substring(2, 5),
+          name: p.name.trim(),
+          position: p.position || 'MID',
+          secondaryPosition: p.secondaryPosition || '',
+          active: true
+        });
+      }
+    });
+    broadcastState();
+  });
+
+  socket.on('directory_remove_player', (playerId) => {
+    if (!roomState.playerDirectory) return;
+    roomState.playerDirectory = roomState.playerDirectory.filter(p => p.id !== playerId);
+    broadcastState();
+  });
+
+  socket.on('directory_select_for_match', (selectedPlayerIds) => {
+    if (!roomState.playerDirectory) return;
+    const selected = roomState.playerDirectory.filter(p => selectedPlayerIds.includes(p.id));
+    roomState.players = selected.map(p => ({
+      id: p.id,
+      name: p.name,
+      position: p.position
+    }));
+    roomState.captain1 = null;
+    roomState.captain2 = null;
+    broadcastState();
+  });
+
+  // --- Match Lifecycle & Archive Events ---
+  socket.on('set_match_metadata', (metadata) => {
+    roomState.matchMetadata = { ...roomState.matchMetadata, ...metadata };
+    if (metadata.name) roomState.matchTitle = metadata.name;
+    broadcastState();
+  });
+
+  socket.on('archive_current_match', () => {
+    if (!roomState.matchArchive) roomState.matchArchive = [];
+    const archivedMatch = {
+      id: 'arch_' + Date.now(),
+      name: roomState.matchMetadata?.name || roomState.matchTitle || 'Sunday Match',
+      date: roomState.matchMetadata?.date || new Date().toLocaleDateString('en-GB'),
+      venue: roomState.matchMetadata?.venue || 'Football Turf',
+      format: roomState.matchMetadata?.format || '8v8',
+      captain1: roomState.captain1,
+      captain2: roomState.captain2,
+      team1Name: roomState.team1Name,
+      team2Name: roomState.team2Name,
+      team1Kit: roomState.team1Kit,
+      team2Kit: roomState.team2Kit,
+      finalTeam1: roomState.finalTeam1.length > 0 ? roomState.finalTeam1 : (roomState.draftState?.team1 || []),
+      finalTeam2: roomState.finalTeam2.length > 0 ? roomState.finalTeam2 : (roomState.draftState?.team2 || []),
+      coinWinner: roomState.tossState?.winner,
+      draftHistory: roomState.draftState?.draftHistory || [],
+      archivedAt: new Date().toISOString()
+    };
+    roomState.matchArchive.unshift(archivedMatch);
+
+    // Reset match state for next week while keeping directory and archive intact
+    const directory = roomState.playerDirectory || [];
+    const archive = roomState.matchArchive || [];
+    const pubUrl = roomState.publicUrl;
+
+    roomState = createInitialState('main');
+    roomState.playerDirectory = directory;
+    roomState.matchArchive = archive;
+    roomState.publicUrl = pubUrl;
+    roomState.matchMetadata = {
+      name: 'Sunday Turf Match',
+      date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: '07:00 PM',
+      venue: 'ABC Football Turf',
+      format: '8v8',
+      status: 'PLAYERS_SETUP'
+    };
+    broadcastState();
   });
 
   socket.on('reset_match', () => {

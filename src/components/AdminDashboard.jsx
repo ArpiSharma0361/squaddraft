@@ -43,6 +43,7 @@ export default function AdminDashboard({
   const [whatsappText, setWhatsappText] = useState('');
   const [copiedLinkType, setCopiedLinkType] = useState(null);
   const [customPublicUrl, setCustomPublicUrl] = useState(publicUrl || '');
+  const [adminTab, setAdminTab] = useState('match');
 
   const [manualName, setManualName] = useState('');
   const [manualPos, setManualPos] = useState('MID');
