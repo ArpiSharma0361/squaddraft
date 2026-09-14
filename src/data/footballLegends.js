@@ -1,0 +1,210 @@
+/**
+ * Football Legends Data Registry for SQUADDRAFT ARENA Museum
+ * Handcrafted legend profiles with era badges, country flags, and labels.
+ */
+export const FOOTBALL_LEGENDS = [
+  {
+    "id": "messi",
+    "name": "Lionel Messi",
+    "shortName": "MESSI",
+    "label": "The Magician",
+    "nationality": "Argentina",
+    "flag": "🇦🇷",
+    "position": "Forward",
+    "era": "2000s–2020s",
+    "image": null,
+    "accentColor": "#38bdf8"
+  },
+  {
+    "id": "ronaldo",
+    "name": "Cristiano Ronaldo",
+    "shortName": "RONALDO",
+    "label": "The Finisher",
+    "nationality": "Portugal",
+    "flag": "🇵🇹",
+    "position": "Forward",
+    "era": "2000s–2020s",
+    "image": null,
+    "accentColor": "#ef4444"
+  },
+  {
+    "id": "maradona",
+    "name": "Diego Maradona",
+    "shortName": "MARADONA",
+    "label": "El Pibe de Oro",
+    "nationality": "Argentina",
+    "flag": "🇦🇷",
+    "position": "Attacking Midfielder",
+    "era": "1970s–1990s",
+    "image": null,
+    "accentColor": "#67e8f9"
+  },
+  {
+    "id": "pele",
+    "name": "Pelé",
+    "shortName": "PELÉ",
+    "label": "The King",
+    "nationality": "Brazil",
+    "flag": "🇧🇷",
+    "position": "Forward",
+    "era": "1950s–1970s",
+    "image": null,
+    "accentColor": "#facc15"
+  },
+  {
+    "id": "beckham",
+    "name": "David Beckham",
+    "shortName": "BECKHAM",
+    "label": "The Icon",
+    "nationality": "England",
+    "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    "position": "Midfielder",
+    "era": "1990s–2010s",
+    "image": null,
+    "accentColor": "#f8fafc"
+  },
+  {
+    "id": "neymar",
+    "name": "Neymar Jr",
+    "shortName": "NEYMAR",
+    "label": "The Artist",
+    "nationality": "Brazil",
+    "flag": "🇧🇷",
+    "position": "Forward",
+    "era": "2010s–2020s",
+    "image": null,
+    "accentColor": "#fbbf24"
+  },
+  {
+    "id": "bale",
+    "name": "Gareth Bale",
+    "shortName": "BALE",
+    "label": "The Game Changer",
+    "nationality": "Wales",
+    "flag": "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+    "position": "Winger / Forward",
+    "era": "2000s–2020s",
+    "image": null,
+    "accentColor": "#dc2626"
+  },
+  {
+    "id": "zidane",
+    "name": "Zinedine Zidane",
+    "shortName": "ZIDANE",
+    "label": "The Maestro",
+    "nationality": "France",
+    "flag": "🇫🇷",
+    "position": "Midfielder",
+    "era": "1990s–2000s",
+    "image": null,
+    "accentColor": "#3b82f6"
+  },
+  {
+    "id": "ronaldinho",
+    "name": "Ronaldinho",
+    "shortName": "RONALDINHO",
+    "label": "The Entertainer",
+    "nationality": "Brazil",
+    "flag": "🇧🇷",
+    "position": "Attacking Midfielder",
+    "era": "1990s–2010s",
+    "image": null,
+    "accentColor": "#10b981"
+  },
+  {
+    "id": "beckenbauer",
+    "name": "Franz Beckenbauer",
+    "shortName": "BECKENBAUER",
+    "label": "Der Kaiser",
+    "nationality": "Germany",
+    "flag": "🇩🇪",
+    "position": "Sweeper / Defender",
+    "era": "1960s–1980s",
+    "image": null,
+    "accentColor": "#fbbf24"
+  },
+  {
+    "id": "buffon",
+    "name": "Gianluigi Buffon",
+    "shortName": "BUFFON",
+    "label": "The Guardian",
+    "nationality": "Italy",
+    "flag": "🇮🇹",
+    "position": "Goalkeeper",
+    "era": "1990s–2020s",
+    "image": null,
+    "accentColor": "#0ea5e9"
+  },
+  {
+    "id": "iniesta",
+    "name": "Andrés Iniesta",
+    "shortName": "INIESTA",
+    "label": "The Playmaker",
+    "nationality": "Spain",
+    "flag": "🇪🇸",
+    "position": "Midfielder",
+    "era": "2000s–2020s",
+    "image": null,
+    "accentColor": "#f97316"
+  },
+  {
+    "id": "xavi",
+    "name": "Xavi",
+    "shortName": "XAVI",
+    "label": "The Architect",
+    "nationality": "Spain",
+    "flag": "🇪🇸",
+    "position": "Midfielder",
+    "era": "1990s–2010s",
+    "image": null,
+    "accentColor": "#eab308"
+  },
+  {
+    "id": "roberto-carlos",
+    "name": "Roberto Carlos",
+    "shortName": "ROBERTO CARLOS",
+    "label": "The Power",
+    "nationality": "Brazil",
+    "flag": "🇧🇷",
+    "position": "Left-Back / Defender",
+    "era": "1990s–2000s",
+    "image": null,
+    "accentColor": "#10b981"
+  },
+  {
+    "id": "maldini",
+    "name": "Paolo Maldini",
+    "shortName": "MALDINI",
+    "label": "The Legend",
+    "nationality": "Italy",
+    "flag": "🇮🇹",
+    "position": "Defender",
+    "era": "1980s–2000s",
+    "image": null,
+    "accentColor": "#e11d48"
+  },
+  {
+    "id": "yamal",
+    "name": "Lamine Yamal",
+    "shortName": "YAMAL",
+    "label": "The Next Chapter",
+    "nationality": "Spain",
+    "flag": "🇪🇸",
+    "position": "Winger / Forward",
+    "era": "2020s–Present",
+    "image": null,
+    "accentColor": "#8b5cf6"
+  },
+  {
+    "id": "pedri",
+    "name": "Pedri",
+    "shortName": "PEDRI",
+    "label": "The Visionary",
+    "nationality": "Spain",
+    "flag": "🇪🇸",
+    "position": "Midfielder",
+    "era": "2020s–Present",
+    "image": null,
+    "accentColor": "#6366f1"
+  }
+];

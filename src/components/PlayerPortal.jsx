@@ -1,241 +1,363 @@
-import { CARD_POSITION_CONFIG } from './PlayerCard';
-import PositionAnimation from './PositionAnimation';
 import React, { useState } from 'react';
-import { UserPlus, Users, CheckCircle2, Sparkles, ArrowRight, Shield, Star, Trophy } from 'lucide-react';
-import { POSITIONS } from '../types';
+import {
+  Users,
+  CheckCircle2,
+  Sparkles,
+  ArrowRight,
+  Shield,
+  Trophy,
+  Flame,
+  Heart,
+  Calendar,
+  ChevronDown
+} from 'lucide-react';
 import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
+import FootballLegendsWall from './FootballLegendsWall';
+
+const POSITION_OPTIONS = [
+  { code: 'GK', label: 'Goalkeeper', icon: '🧤', color: 'border-amber-500/40 text-amber-300 bg-amber-500/10' },
+  { code: 'DEF', label: 'Defender', icon: '🛡️', color: 'border-blue-500/40 text-blue-300 bg-blue-500/10' },
+  { code: 'MID', label: 'Midfielder', icon: '👟', color: 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' },
+  { code: 'ST', label: 'Striker', icon: '🎯', color: 'border-orange-500/40 text-orange-300 bg-orange-500/10' },
+  { code: 'ANY', label: 'Flexible', icon: '⭐', color: 'border-purple-500/40 text-purple-300 bg-purple-500/10' }
+];
 
 export default function PlayerPortal({
-  players,
-  matchTitle
+  players = [],
+  matchTitle = 'Sunday Turf War',
+  onGoToAdmin
 }) {
   const [name, setName] = useState('');
-  const [position, setPosition] = useState('MID');
+  const [primaryPosition, setPrimaryPosition] = useState('MID');
+  const [secondaryPosition, setSecondaryPosition] = useState('');
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
+  const [justRegisteredName, setJustRegisteredName] = useState('');
 
   const posCounts = {
     GK: players.filter(p => p.position === 'GK').length,
     DEF: players.filter(p => p.position === 'DEF').length,
     MID: players.filter(p => p.position === 'MID').length,
-    FWD: players.filter(p => p.position === 'FWD' || p.position === 'ST').length,
-    ANY: players.filter(p => p.position === 'ANY').length,
+    ST: players.filter(p => p.position === 'ST' || p.position === 'FWD').length,
+    ANY: players.filter(p => p.position === 'ANY').length
   };
 
   const handleRegister = (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const cleanName = name.trim();
+    if (!cleanName) return;
 
-    if (players.some(p => p.name.toLowerCase() === name.trim().toLowerCase())) {
-      alert(`"${name.trim()}" is already registered on the match roster.`);
+    if (players.some(p => p.name.toLowerCase() === cleanName.toLowerCase())) {
+      alert(`"${cleanName}" is already registered on the match roster.`);
       return;
     }
 
     const newPlayer = {
       id: 'p_' + Date.now() + Math.random().toString(36).substring(2, 5),
-      name: name.trim(),
-      position: position
+      name: cleanName,
+      position: primaryPosition,
+      secondaryPosition: secondaryPosition || undefined
     };
 
     socket.emit('player_register', newPlayer);
 
+    setJustRegisteredName(cleanName);
     setName('');
     setRegisteredSuccess(true);
-    sfx.playTransferPop();
+    sfx.playWhistle();
 
     setTimeout(() => {
       setRegisteredSuccess(false);
-    }, 4500);
+    }, 6000);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Top Hero Card - Welcome to Tournament */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-3xl p-6 sm:p-9 shadow-lg text-center relative overflow-hidden text-white">
-        <div className="absolute -right-8 -bottom-8 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -left-8 -top-8 w-44 h-44 bg-white/15 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black mb-3 shadow-xs">
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>MATCHDAY REGISTRATION</span>
-        </div>
-        
-        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white flex items-center justify-center gap-2">
-          <span>JOIN THE SQUADDRAFT</span>
-          <span className="text-amber-300">⚽</span>
-        </h1>
-        
-        <p className="text-sm sm:text-base text-emerald-100 max-w-lg mx-auto mt-2.5 font-medium">
-          Register yourself for today's football draft for <strong>{matchTitle || 'Weekly Match'}</strong>!
-        </p>
-
-        <div className="mt-4 inline-flex items-center space-x-2 px-4 py-1.5 rounded-2xl bg-black/20 backdrop-blur-xs text-xs font-bold text-white border border-white/20">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>{players.length} Players Currently on Roster</span>
-        </div>
-      </div>
-
-      {/* Registration Form Card */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-200">
-              <UserPlus className="w-5 h-5" />
+    <div className="w-full space-y-12 sm:space-y-16 py-4 animate-in fade-in duration-500">
+      {/* ============================================================ */}
+      {/* SECTION 1: HERO & REGISTRATION + LEGENDS SPLIT / STACKED */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+        {/* LEFT COLUMN (Desktop) / TOP (Mobile): Intro & Registration Form */}
+        <div className="lg:col-span-5 space-y-6 sm:space-y-8 order-1 lg:order-1">
+          {/* Main Headline & Supporting Copy */}
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>MATCHDAY REGISTRATION LIVE</span>
             </div>
-            <div>
-              <h2 className="text-lg font-black text-slate-900">Enter Your Player Details</h2>
-              <p className="text-xs text-slate-500 font-medium">Choose your preferred position on the pitch</p>
-            </div>
-          </div>
-          <div className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl shadow-xs">
-            <span>🟢 Open Roster</span>
-          </div>
-        </div>
 
-        {registeredSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-900 text-sm font-black flex items-center space-x-3 animate-transfer-pop shadow-md shadow-emerald-100">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-            <div>
-              <p className="font-extrabold text-emerald-950">Registration Confirmed! 🎉</p>
-              <p className="text-xs text-emerald-700 font-medium">You are officially locked into today's squad draft pool.</p>
-            </div>
-          </div>
-        )}
+            <h1 className="text-4xl sm:text-5xl xl:text-6xl font-black text-white tracking-tight leading-[1.05]">
+              LEGENDS <br />
+              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+                INSPIRE US.
+              </span>
+            </h1>
 
-        <form onSubmit={handleRegister} className="space-y-6">
-          {/* Player Name Field */}
-          <div>
-            <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wider">
-              Your Name / Football Nickname
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Leo, Arpit, Marcus, CR7..."
-              className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 text-sm font-bold focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/15 transition-all shadow-inner"
-            />
-          </div>
-
-          {/* Position Selector - 5 Distinct Position Cards */}
-          <div>
-            <label className="block text-xs font-black text-slate-700 mb-2.5 uppercase tracking-wider">
-              Preferred Playing Position
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {Object.values(POSITIONS).map((pos) => {
-                const isSelected = position === pos.code;
-                return (
-                  <button
-                    key={pos.code}
-                    type="button"
-                    onClick={() => { setPosition(pos.code); sfx.playPick(); }}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer transform active:scale-95 ${
-                      isSelected
-                        ? `${pos.bgLight} ${pos.border} ring-4 ${pos.ring} shadow-md scale-102`
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 hover:shadow-sm'
-                    }`}
-                  >
-                    <div className={`w-14 h-14 rounded-full overflow-hidden mb-1.5 border-2 shadow-xs transition-transform duration-200 ${
-                      isSelected ? 'scale-110 ring-2 ring-emerald-400 border-white' : 'border-slate-200'
-                    }`}>
-                      <img src={CARD_POSITION_CONFIG[pos.code]?.img || '/characters/any.jpg'} alt={pos.label} className="w-full h-full object-cover" />
-                    </div>
-                    <span className={`text-sm font-black ${isSelected ? pos.accentText : 'text-slate-800'}`}>
-                      {pos.code}
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5 text-center">
-                      {pos.label}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="text-sm sm:text-base text-slate-300 space-y-2.5 font-medium leading-relaxed">
+              <p>
+                Football is more than a game, it's a story of dreams.
+              </p>
+              <p className="text-slate-400 text-xs sm:text-sm">
+                From local pitches to the biggest stadiums, football has given the world unforgettable moments and legendary players.
+              </p>
+              <p className="text-slate-400 text-xs sm:text-sm">
+                Their passion, skill and dedication continue to inspire new generations.
+              </p>
+              <p className="text-emerald-300 font-bold text-xs sm:text-sm">
+                Now it's your turn to be part of the story.
+              </p>
             </div>
           </div>
 
-          {/* Submit Action Button */}
-          <button
-            type="submit"
-            disabled={!name.trim()}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base shadow-lg shadow-emerald-600/25 transition-all transform active:scale-98 flex items-center justify-center space-x-2 cursor-pointer"
-          >
-            <span>JOIN THE DRAFT 🚀</span>
-            <ArrowRight className="w-5 h-5 stroke-[3]" />
-          </button>
-        </form>
-      </div>
-
-      {/* Position Breakdown Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-amber-50/80 border border-amber-200 p-3.5 rounded-2xl text-center shadow-xs">
-          <div className="text-xl font-black text-amber-700">🧤 {posCounts.GK}</div>
-          <div className="text-[11px] font-bold text-amber-900 mt-0.5">Goalkeepers {posCounts.GK === 2 ? '✅' : ''}</div>
-        </div>
-        <div className="bg-sky-50/80 border border-sky-200 p-3.5 rounded-2xl text-center shadow-xs">
-          <div className="text-xl font-black text-sky-700">🛡️ {posCounts.DEF}</div>
-          <div className="text-[11px] font-bold text-sky-900 mt-0.5">Defenders</div>
-        </div>
-        <div className="bg-emerald-50/80 border border-emerald-200 p-3.5 rounded-2xl text-center shadow-xs">
-          <div className="text-xl font-black text-emerald-700">🎯 {posCounts.MID}</div>
-          <div className="text-[11px] font-bold text-emerald-900 mt-0.5">Midfielders</div>
-        </div>
-        <div className="bg-orange-50/80 border border-orange-200 p-3.5 rounded-2xl text-center shadow-xs">
-          <div className="text-xl font-black text-orange-700">⚡ {posCounts.FWD}</div>
-          <div className="text-[11px] font-bold text-orange-900 mt-0.5">Forwards</div>
-        </div>
-        <div className="bg-purple-50/80 border border-purple-200 p-3.5 rounded-2xl text-center shadow-xs">
-          <div className="text-xl font-black text-purple-700">⭐ {posCounts.ANY}</div>
-          <div className="text-[11px] font-bold text-purple-900 mt-0.5">Flexible</div>
-        </div>
-      </div>
-
-      {/* Confirmed Squad Roster Pool */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-sm space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 bg-slate-100 rounded-xl text-slate-700 border border-slate-200">
-              <Users className="w-5 h-5" />
+          {/* Registration Card: JOIN THIS WEEK'S MATCH */}
+          <div id="register-card" className="relative rounded-3xl bg-slate-900/90 backdrop-blur-xl border border-emerald-500/30 p-6 sm:p-7 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                  JOIN THIS WEEK'S MATCH
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Register now and get drafted into one of the teams.
+                </p>
+              </div>
+              <span className="p-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xl">
+                ⚽
+              </span>
             </div>
-            <div>
-              <h3 className="font-black text-slate-900 text-base">
-                Confirmed Squad Roster ({players.length})
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">Players ready for matchday captain picks</p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            Live Player Pool
-          </span>
-        </div>
 
-        {players.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 space-y-2">
-            <Users className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
-            <p className="text-sm font-extrabold text-slate-700">No players registered yet.</p>
-            <p className="text-xs text-slate-500">Be the first to confirm your spot using the form above!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto pr-1">
-            {players.map((p, idx) => {
-              const pos = POSITIONS[p.position] || POSITIONS.ANY;
-              return (
-                <div
-                  key={p.id}
-                  className="p-3 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-xs hover:shadow-sm hover:border-emerald-300 transition-all"
-                >
-                  <div className="flex items-center space-x-2.5 truncate">
-                    <span className="text-xs font-black text-slate-400 w-5">{idx + 1}.</span>
-                    <span className="font-black text-sm text-slate-900 truncate">{p.name}</span>
+            {/* Success Feedback Alert */}
+            {registeredSuccess && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-emerald-500/20 border border-emerald-400/50 flex items-center gap-3 animate-in fade-in duration-300">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-black text-sm text-white flex items-center gap-1.5">
+                    <span>YOU'RE REGISTERED ⚽</span>
                   </div>
-                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl border ${pos.bgLight} ${pos.border} flex items-center space-x-1`}>
-                    <span>{pos.badge}</span>
-                    <span>{pos.code}</span>
-                  </span>
+                  <p className="text-xs text-emerald-300 font-medium">
+                    See you on the pitch{justRegisteredName ? `, ${justRegisteredName}` : ''}! You are added to the live draft pool.
+                  </p>
                 </div>
-              );
-            })}
+              </div>
+            )}
+
+            <form onSubmit={handleRegister} className="space-y-5">
+              {/* Field 1: Your Name */}
+              <div>
+                <label className="block text-xs font-black text-slate-300 uppercase tracking-wider mb-2">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your football name..."
+                  className="w-full px-4 py-3.5 bg-slate-950/80 border border-slate-700/80 focus:border-emerald-400 rounded-2xl text-white placeholder-slate-500 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all shadow-inner"
+                />
+              </div>
+
+              {/* Field 2: Primary Position */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-slate-300 uppercase tracking-wider">
+                    Primary Position
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-400">Required</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                  {POSITION_OPTIONS.map((pos) => {
+                    const isSelected = primaryPosition === pos.code;
+                    return (
+                      <button
+                        key={pos.code}
+                        type="button"
+                        onClick={() => {
+                          setPrimaryPosition(pos.code);
+                          sfx.playPick();
+                        }}
+                        className={`py-3 px-1 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                          isSelected
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-lg shadow-emerald-500/20 scale-102'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        <span className="text-base sm:text-lg">{pos.icon}</span>
+                        <span className="text-xs font-black tracking-wider">{pos.code}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Field 3: Secondary Position (Optional) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                    Secondary Position
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">Optional</span>
+                </div>
+                <select
+                  value={secondaryPosition}
+                  onChange={(e) => setSecondaryPosition(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-2xl text-slate-300 text-xs font-bold focus:outline-none focus:border-slate-600 cursor-pointer"
+                >
+                  <option value="">No secondary position</option>
+                  <option value="GK">🧤 Goalkeeper (GK)</option>
+                  <option value="DEF">🛡️ Defender (DEF)</option>
+                  <option value="MID">👟 Midfielder (MID)</option>
+                  <option value="ST">🎯 Striker / Forward (ST)</option>
+                  <option value="ANY">⭐ Flexible / Utility (ANY)</option>
+                </select>
+              </div>
+
+              {/* Action Button: REGISTER NOW → */}
+              <button
+                type="submit"
+                disabled={!name.trim()}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-emerald-500/20 transition-all transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+              >
+                <span>REGISTER NOW</span>
+                <span>→</span>
+              </button>
+            </form>
           </div>
-        )}
+
+          {/* Real-time Position Breakdown Chips */}
+          <div className="grid grid-cols-5 gap-2 text-center select-none">
+            <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <div className="text-xs sm:text-sm font-black">🧤 {posCounts.GK}</div>
+              <div className="text-[9px] font-bold uppercase mt-0.5">GK</div>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              <div className="text-xs sm:text-sm font-black">🛡️ {posCounts.DEF}</div>
+              <div className="text-[9px] font-bold uppercase mt-0.5">DEF</div>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <div className="text-xs sm:text-sm font-black">👟 {posCounts.MID}</div>
+              <div className="text-[9px] font-bold uppercase mt-0.5">MID</div>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
+              <div className="text-xs sm:text-sm font-black">🎯 {posCounts.ST}</div>
+              <div className="text-[9px] font-bold uppercase mt-0.5">ST</div>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+              <div className="text-xs sm:text-sm font-black">⭐ {posCounts.ANY}</div>
+              <div className="text-[9px] font-bold uppercase mt-0.5">ANY</div>
+            </div>
+          </div>
+
+          {/* Confirmed Matchday Roster Drawer */}
+          <div id="confirmed-roster" className="rounded-3xl bg-slate-900/60 border border-slate-800 p-5 shadow-lg space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+              <div className="flex items-center gap-2 font-black text-white">
+                <Users className="w-4 h-4 text-emerald-400" />
+                <span>CONFIRMED SQUAD ROSTER ({players.length})</span>
+              </div>
+              <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-600/30">
+                Match Pool
+              </span>
+            </div>
+
+            {players.length === 0 ? (
+              <p className="text-xs text-slate-500 py-3 text-center">
+                No players registered yet. Be the first to claim your spot!
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                {players.map((p, idx) => (
+                  <div
+                    key={p.id || idx}
+                    className="px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs"
+                  >
+                    <span className="font-bold text-slate-200 truncate">{idx + 1}. {p.name}</span>
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
+                      {p.position}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (Desktop) / BOTTOM (Mobile): FOOTBALL LEGENDS WALL */}
+        <div className="lg:col-span-7 order-2 lg:order-2">
+          <FootballLegendsWall />
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* SECTION 2: FOOTBALL PHILOSOPHY & COMMUNITY MESSAGE */}
+      {/* ============================================================ */}
+      <div id="football-philosophy" className="relative rounded-3xl bg-gradient-to-r from-slate-950 via-[#0c1429] to-slate-950 border border-slate-800 p-8 sm:p-10 lg:p-12 shadow-2xl space-y-8 overflow-hidden text-center">
+        {/* Subtle Green/Gold Ambient Glow */}
+        <div className="absolute top-0 right-1/4 w-96 h-32 bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+        <div className="max-w-2xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-amber-400 text-xs font-black uppercase tracking-widest">
+            <Flame className="w-3.5 h-3.5 text-amber-400" />
+            <span>PLAY • DRAFT • ENJOY • REPEAT</span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Different eras. Different styles. <br />
+            <span className="text-emerald-400">One beautiful game.</span>
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
+            Whether you play weekly on turf or follow champions on global stages, football unites every community.
+          </p>
+        </div>
+
+        {/* 4 Feature Value Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+          <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-emerald-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-base">
+              🤝
+            </div>
+            <h4 className="font-black text-white text-sm uppercase tracking-wide">
+              BUILD FRIENDSHIPS
+            </h4>
+            <p className="text-xs text-slate-400 font-medium">
+              On and off the pitch. Football bonds players across every background.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-cyan-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-base">
+              ⚽
+            </div>
+            <h4 className="font-black text-white text-sm uppercase tracking-wide">
+              PLAY TOGETHER
+            </h4>
+            <p className="text-xs text-slate-400 font-medium">
+              New people, new stories, every match. Balanced rosters made for pure enjoyment.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-amber-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-base">
+              ⚡
+            </div>
+            <h4 className="font-black text-white text-sm uppercase tracking-wide">
+              BE PART OF THE GAME
+            </h4>
+            <p className="text-xs text-slate-400 font-medium">
+              Register. Get drafted. Play. Experience the excitement of professional-style team drafting.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-purple-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-base">
+              ❤️
+            </div>
+            <h4 className="font-black text-white text-sm uppercase tracking-wide">
+              KEEP THE SPIRIT ALIVE
+            </h4>
+            <p className="text-xs text-slate-400 font-medium">
+              Football always connects. Celebrate great plays, respect every opponent, enjoy the turf.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

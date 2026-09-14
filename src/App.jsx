@@ -231,7 +231,7 @@ export default function App() {
   const activeCaptainToken = captainToken || (effectiveRole === 'cap1' ? cap1Token : effectiveRole === 'cap2' ? cap2Token : null);
 
   return (
-    <div className="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950">
+    <div className="min-h-screen bg-[#040814] text-slate-100 flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950">
       <Navbar
         activeView={activeView}
         setActiveView={setActiveView}
