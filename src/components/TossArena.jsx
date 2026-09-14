@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
 import { ArenaCanvas } from './arena/ArenaCanvas';
+import { ArenaErrorBoundary } from './arena/ArenaErrorBoundary';
 
 export default function TossArena({
   captain1,
@@ -200,14 +201,20 @@ export default function TossArena({
 
         {/* 3D ARENA CINEMATIC COIN TOSS CANVAS */}
         <div className="my-4">
-          <ArenaCanvas
+          <ArenaErrorBoundary
             roomState={roomStateMock}
             activeStage="toss"
-            tossFlipEvent={tossFlipEvent}
-            onCoinFlip={handleCoinFlip}
             role={myRole}
-            canFlipToss={isCaptain && !tossWinner && !isFlipping}
-          />
+          >
+            <ArenaCanvas
+              roomState={roomStateMock}
+              activeStage="toss"
+              tossFlipEvent={tossFlipEvent}
+              onCoinFlip={handleCoinFlip}
+              role={myRole}
+              canFlipToss={isCaptain && !tossWinner && !isFlipping}
+            />
+          </ArenaErrorBoundary>
         </div>
 
         {/* Status & Action Buttons Below Arena */}

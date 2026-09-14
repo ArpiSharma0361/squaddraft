@@ -28,6 +28,7 @@ import { sfx } from '../utils/soundEffects';
 import PlayerDirectoryPanel from './PlayerDirectoryPanel';
 import MatchHistoryPanel from './MatchHistoryPanel';
 import { ArenaCanvas } from './arena/ArenaCanvas';
+import { ArenaErrorBoundary } from './arena/ArenaErrorBoundary';
 
 export default function AdminDashboard({
   players,
@@ -47,6 +48,11 @@ export default function AdminDashboard({
   setIsAdminLoggedIn,
   playerDirectory = [],
   matchArchive = [],
+  roomStep = 'setup',
+  draftState = null,
+  finalTeam1 = [],
+  finalTeam2 = [],
+  tossState = null,
   onLaunchRoom
 }) {
   const [pinInput, setPinInput] = useState('');
@@ -56,6 +62,23 @@ export default function AdminDashboard({
   const [copiedLinkType, setCopiedLinkType] = useState(null);
   const [customPublicUrl, setCustomPublicUrl] = useState(publicUrl || '');
   const [adminTab, setAdminTab] = useState('match'); // 'match' | 'directory' | 'archive'
+
+  const safeRoomState = {
+    captain1: captain1 || null,
+    captain2: captain2 || null,
+    team1Name: team1Name || 'Team White',
+    team2Name: team2Name || 'Team Black',
+    team1Kit: team1Kit || 'white',
+    team2Kit: team2Kit || 'black',
+    draftState: draftState || null,
+    tossState: tossState || null,
+    finalTeam1: Array.isArray(finalTeam1) ? finalTeam1 : [],
+    finalTeam2: Array.isArray(finalTeam2) ? finalTeam2 : [],
+    players: Array.isArray(players) ? players : [],
+    matchScore: matchScore || null,
+    matchTitle: matchTitle || 'Sunday Football Turf War',
+    roomId: 'main'
+  };
 
   const [manualName, setManualName] = useState('');
   const [manualPos, setManualPos] = useState('MID');
@@ -654,26 +677,19 @@ export default function AdminDashboard({
                 {roomStep ? roomStep.toUpperCase() : 'ARENA READY'}
               </span>
             </div>
-            <ArenaCanvas
-              roomState={{
-                captain1,
-                captain2,
-                team1Name,
-                team2Name,
-                team1Kit,
-                team2Kit,
-                draftState,
-                finalTeam1: roomState?.finalTeam1 || [],
-                finalTeam2: roomState?.finalTeam2 || [],
-                players,
-                matchScore,
-                matchTitle,
-                roomId: 'main'
-              }}
+            <ArenaErrorBoundary
+              roomState={safeRoomState}
               activeStage={roomStep === 'toss' ? 'toss' : roomStep === 'draft' ? 'draft' : roomStep === 'finalTeams' ? 'finalTeams' : 'setup'}
               currentTurn={draftState?.currentTurn || 1}
               role="admin"
-            />
+            >
+              <ArenaCanvas
+                roomState={safeRoomState}
+                activeStage={roomStep === 'toss' ? 'toss' : roomStep === 'draft' ? 'draft' : roomStep === 'finalTeams' ? 'finalTeams' : 'setup'}
+                currentTurn={draftState?.currentTurn || 1}
+                role="admin"
+              />
+            </ArenaErrorBoundary>
           </div>
 
           {/* TASK 4: Final Match Score Section */}

@@ -23,6 +23,7 @@ import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
 import PlayerCard from './PlayerCard';
 import { ArenaCanvas } from './arena/ArenaCanvas';
+import { ArenaErrorBoundary } from './arena/ArenaErrorBoundary';
 
 export default function DraftRoom({
   allPlayers = [],
@@ -346,14 +347,21 @@ export default function DraftRoom({
 
           {/* Center 3D Arena Stadium Component */}
           <div className="lg:col-span-6 w-full">
-            <ArenaCanvas
+            <ArenaErrorBoundary
               roomState={roomStateMock}
               activeStage={activeStage}
               currentTurn={currentTurn}
-              timerSeconds={timeLeft}
-              lastConfirmedPick={lastConfirmedPick}
               role={myRole}
-            />
+            >
+              <ArenaCanvas
+                roomState={roomStateMock}
+                activeStage={activeStage}
+                currentTurn={currentTurn}
+                timerSeconds={timeLeft}
+                lastConfirmedPick={lastConfirmedPick}
+                role={myRole}
+              />
+            </ArenaErrorBoundary>
           </div>
 
           {/* Right HUD: Team 2 / Captain 2 (Purple / Violet Theme) */}

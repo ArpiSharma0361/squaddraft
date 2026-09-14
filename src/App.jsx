@@ -278,6 +278,11 @@ export default function App() {
             setIsAdminLoggedIn={setIsAdminLoggedIn}
             playerDirectory={playerDirectory}
             matchArchive={matchArchive}
+            roomStep={roomStep}
+            draftState={draftState}
+            finalTeam1={finalTeam1}
+            finalTeam2={finalTeam2}
+            tossState={tossState}
             onLaunchRoom={() => {
               socket.emit('set_room_step', { step: 'toss', adminToken });
               setRoomRole('admin');

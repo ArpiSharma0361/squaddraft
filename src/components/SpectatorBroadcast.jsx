@@ -16,6 +16,7 @@ import {
   Radio
 } from 'lucide-react';
 import { ArenaCanvas } from './arena/ArenaCanvas';
+import { ArenaErrorBoundary } from './arena/ArenaErrorBoundary';
 
 export default function SpectatorBroadcast({
   allPlayers = [],
@@ -177,13 +178,20 @@ export default function SpectatorBroadcast({
 
           {/* Center 3D Arena Stadium */}
           <div className="lg:col-span-6 w-full">
-            <ArenaCanvas
+            <ArenaErrorBoundary
               roomState={roomStateMock}
               activeStage={activeStage}
               currentTurn={currentTurn}
-              timerSeconds={timeLeft}
               role="spectator"
-            />
+            >
+              <ArenaCanvas
+                roomState={roomStateMock}
+                activeStage={activeStage}
+                currentTurn={currentTurn}
+                timerSeconds={timeLeft}
+                role="spectator"
+              />
+            </ArenaErrorBoundary>
           </div>
 
           {/* Team 2 Squad Panel (Right - Purple/Violet Theme) */}
