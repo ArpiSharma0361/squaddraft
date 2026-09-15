@@ -9,10 +9,12 @@ import {
   Flame,
   Heart,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  ArrowDown
 } from 'lucide-react';
 import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
+import FootballLegendsHero3D from './FootballLegendsHero3D';
 import FootballLegendsWall from './FootballLegendsWall';
 
 const POSITION_OPTIONS = [
@@ -71,15 +73,21 @@ export default function PlayerPortal({
     }, 6000);
   };
 
+  const scrollToRegister = () => {
+    const el = document.getElementById('register-card');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="w-full space-y-12 sm:space-y-16 py-2 animate-in fade-in duration-300 text-[#0B2341]">
       {/* ============================================================ */}
-      {/* SECTION 1: HERO & REGISTRATION + LEGENDS SPLIT / STACKED */}
+      {/* SECTION 1: CINEMATIC 3D FOOTBALL LEGENDS HERO (Phase 3.3)    */}
       {/* ============================================================ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-        {/* LEFT COLUMN (Desktop: 40%) / TOP (Mobile): Intro & Registration Form */}
-        <div className="lg:col-span-5 space-y-6 sm:space-y-8 order-1 lg:order-1">
-          {/* Main Headline & Supporting Copy */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+        {/* LEFT COLUMN (Desktop: 42%): Intro Story Copy & Quick Action */}
+        <div className="lg:col-span-5 space-y-5 sm:space-y-6">
           <div className="space-y-3.5">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFF8E8] border border-[#D7A52A]/40 text-[#07883F] text-xs font-black uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-[#07883F] animate-ping" />
@@ -107,10 +115,38 @@ export default function PlayerPortal({
             </div>
           </div>
 
+          {/* Quick Registration Jump CTA */}
+          <div className="pt-1 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={scrollToRegister}
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-[#07883F] hover:bg-[#13A653] text-white font-black text-sm shadow-md shadow-[#07883F]/20 transition-all hover:scale-102 active:scale-98 cursor-pointer uppercase tracking-wider"
+            >
+              <span>REGISTER FOR MATCH</span>
+              <ArrowDown className="w-4 h-4 animate-bounce" />
+            </button>
+            <span className="text-xs font-bold text-[#536273]">
+              {players.length} confirmed on roster
+            </span>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (Desktop: 58%): Pseudo-3D Rotating Legends Carousel */}
+        <div className="lg:col-span-7">
+          <FootballLegendsHero3D onRegisterClick={scrollToRegister} />
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* SECTION 2: REGISTRATION FORM & 17-LEGENDS GALLERY WALL       */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+        {/* LEFT COLUMN (Desktop: 42%) / TOP (Mobile: order-1): Registration */}
+        <div className="lg:col-span-5 space-y-6 sm:space-y-8 order-1 lg:order-1">
           {/* Registration Card: JOIN THIS WEEK'S MATCH */}
           <div
             id="register-card"
-            className="relative rounded-3xl bg-white border border-[#E5E7EB] p-6 sm:p-7 shadow-md space-y-6"
+            className="relative rounded-3xl bg-white border border-[#E5E7EB] p-6 sm:p-7 shadow-md space-y-6 scroll-mt-20"
           >
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
               <div>
@@ -219,7 +255,7 @@ export default function PlayerPortal({
                 </select>
               </div>
 
-              {/* Action Button: REGISTER NOW → */}
+              {/* Action Button: REGISTER NOW */}
               <button
                 type="submit"
                 disabled={!name.trim()}
@@ -292,14 +328,14 @@ export default function PlayerPortal({
           </div>
         </div>
 
-        {/* RIGHT COLUMN (Desktop: 60%) / BOTTOM (Mobile): FOOTBALL LEGENDS WALL */}
+        {/* RIGHT COLUMN (Desktop: 58%) / BOTTOM (Mobile: order-2): FOOTBALL LEGENDS WALL */}
         <div className="lg:col-span-7 order-2 lg:order-2">
           <FootballLegendsWall />
         </div>
       </div>
 
       {/* ============================================================ */}
-      {/* SECTION 2: FOOTBALL PHILOSOPHY & COMMUNITY MESSAGE */}
+      {/* SECTION 3: FOOTBALL PHILOSOPHY & COMMUNITY MESSAGE           */}
       {/* ============================================================ */}
       <div
         id="football-philosophy"
@@ -328,47 +364,47 @@ export default function PlayerPortal({
             <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-emerald-600 text-base shadow-xs">
               🤝
             </div>
-            <h4 className="font-black text-[#0B2341] text-sm uppercase tracking-wide">
+            <h4 className="text-sm font-black text-[#0B2341] uppercase tracking-wide">
               BUILD FRIENDSHIPS
             </h4>
-            <p className="text-xs text-[#536273] font-medium">
-              On and off the pitch. Football bonds players across every background.
+            <p className="text-xs text-[#536273] font-medium leading-relaxed">
+              Every match brings people closer. Compete hard, high-five after, and stay connected.
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-blue-400/50 transition-colors shadow-2xs">
-            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-blue-600 text-base shadow-xs">
-              ⚽
-            </div>
-            <h4 className="font-black text-[#0B2341] text-sm uppercase tracking-wide">
-              PLAY TOGETHER
-            </h4>
-            <p className="text-xs text-[#536273] font-medium">
-              New people, new stories, every match. Balanced rosters made for pure enjoyment.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-amber-400/50 transition-colors shadow-2xs">
-            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-amber-600 text-base shadow-xs">
+          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-[#07883F]/50 transition-colors shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-emerald-600 text-base shadow-xs">
               ⚡
             </div>
-            <h4 className="font-black text-[#0B2341] text-sm uppercase tracking-wide">
-              BE PART OF THE GAME
+            <h4 className="text-sm font-black text-[#0B2341] uppercase tracking-wide">
+              PLAY TOGETHER
             </h4>
-            <p className="text-xs text-[#536273] font-medium">
-              Register. Get drafted. Play. Experience the excitement of professional-style team drafting.
+            <p className="text-xs text-[#536273] font-medium leading-relaxed">
+              Win or lose, the joy is in the 90 minutes of running, passing, and teamwork.
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-purple-400/50 transition-colors shadow-2xs">
-            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-purple-600 text-base shadow-xs">
-              ❤️
+          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-[#07883F]/50 transition-colors shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-emerald-600 text-base shadow-xs">
+              🏟️
             </div>
-            <h4 className="font-black text-[#0B2341] text-sm uppercase tracking-wide">
+            <h4 className="text-sm font-black text-[#0B2341] uppercase tracking-wide">
+              BE PART OF THE GAME
+            </h4>
+            <p className="text-xs text-[#536273] font-medium leading-relaxed">
+              From captains picking their squad to the final whistle, everyone belongs here.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#F8F7F2] border border-[#E5E7EB] space-y-2 hover:border-[#07883F]/50 transition-colors shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center text-emerald-600 text-base shadow-xs">
+              ⭐
+            </div>
+            <h4 className="text-sm font-black text-[#0B2341] uppercase tracking-wide">
               KEEP THE SPIRIT ALIVE
             </h4>
-            <p className="text-xs text-[#536273] font-medium">
-              Football always connects. Celebrate great plays, respect every opponent, enjoy the turf.
+            <p className="text-xs text-[#536273] font-medium leading-relaxed">
+              Honoring legends while creating our own weekly memories on the turf.
             </p>
           </div>
         </div>
