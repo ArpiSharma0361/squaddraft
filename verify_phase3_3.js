@@ -66,15 +66,16 @@ assert(heroCode.includes('scrollIntoView'), 'Uses smooth scrollIntoView to jump 
 const portalFile = path.join(ROOT, 'src/components/PlayerPortal.jsx');
 const portalCode = fs.readFileSync(portalFile, 'utf8');
 assert(portalCode.includes('FootballLegendsHero3D'), 'PlayerPortal.jsx imports and mounts FootballLegendsHero3D');
-assert(portalCode.includes('FootballLegendsWall'), 'PlayerPortal.jsx preserves 17-player FootballLegendsWall');
+assert(!portalCode.includes('<FootballLegendsWall'), 'PlayerPortal.jsx does NOT render FootballLegendsWall bottom gallery');
 assert(portalCode.includes('REGISTERED FOR SUNDAY TURF'), 'Displays compact registered count status badge');
 assert(portalCode.includes('VIEW ROSTER'), 'Provides compact modal/drawer trigger: VIEW ROSTER');
 assert(portalCode.includes('showRosterModal'), 'Manages roster in modal to keep main page compact');
 
-// 10. Compact 2-Row FootballLegendsWall
+// 10. Preservation of FootballLegendsWall and Assets
 const wallFile = path.join(ROOT, 'src/components/FootballLegendsWall.jsx');
-const wallCode = fs.readFileSync(wallFile, 'utf8');
-assert(wallCode.includes('xl:grid-cols-9'), 'FootballLegendsWall fits up to 9 cards per row on desktop (2 rows total)');
+assert(fs.existsSync(wallFile), 'FootballLegendsWall.jsx component file is preserved and not deleted');
+const legendsDataFile = path.join(ROOT, 'src/data/footballLegends.js');
+assert(fs.existsSync(legendsDataFile), 'footballLegends.js registry is preserved');
 
 // -------------------------------------------------------------------
 // 11. AUTOPLAY TIMER & LIFECYCLE ADVANCEMENT SIMULATION TEST
@@ -173,22 +174,26 @@ assert(sim.currentIndex === 1 && sim.getCurrentPlayer().name === 'Cristiano Rona
 await sleep(3050);
 assert(sim.currentIndex === 2 && sim.getCurrentPlayer().name === 'Diego Maradona', 'After another 3.0s autoplay: Player advances to Maradona (index 2)');
 
-// Step 4: Manual interaction -> Advances to Pelé and pauses autoplay for 5 seconds
+// Step 4: Advance another 3 seconds -> Pelé (via autoplay)
+await sleep(3050);
+assert(sim.currentIndex === 3 && sim.getCurrentPlayer().name === 'Pelé', 'After another 3.0s autoplay: Player advances to Pelé (index 3)');
+
+// Step 5: Manual interaction -> Advances to Beckham and pauses autoplay for 5 seconds
 sim.manualNext();
-assert(sim.currentIndex === 3 && sim.getCurrentPlayer().name === 'Pelé', 'Manual Next clicked: Advances immediately to Pelé (index 3)');
+assert(sim.currentIndex === 4 && sim.getCurrentPlayer().name === 'David Beckham', 'Manual Next clicked: Advances immediately to Beckham (index 4)');
 assert(sim.isInteracting === true, 'Manual interaction initiates 5.0s pause state');
 
-// Step 5: Wait 2.5s (still within 5s pause window) -> Should NOT advance
+// Step 6: Wait 2.5s (still within 5s pause window) -> Should NOT advance
 await sleep(2500);
-assert(sim.currentIndex === 3, 'During 5.0s pause: Autoplay remains paused at Pelé');
+assert(sim.currentIndex === 4, 'During 5.0s pause: Autoplay remains paused at Beckham');
 
-// Step 6: Wait another 3s (total 5.5s, pause has expired and autoplay resumed for ~0.5s)
+// Step 7: Wait another 3s (total 5.5s, pause has expired and autoplay resumed for ~0.5s)
 await sleep(3000);
 assert(sim.isInteracting === false, 'After 5.0s delay: Active interaction pause cleared');
 
-// Step 7: Wait remaining time for next 3s tick -> Advances to Beckham
+// Step 8: Wait remaining time for next 3s tick -> Advances to Neymar Jr
 await sleep(2700);
-assert(sim.currentIndex === 4 && sim.getCurrentPlayer().name === 'David Beckham', 'Autoplay resumed: Player advances to Beckham (index 4)');
+assert(sim.currentIndex === 5 && sim.getCurrentPlayer().name === 'Neymar Jr', 'Autoplay resumed: Player advances to Neymar Jr (index 5)');
 
 // Step 8: Test loop from Pedri (16) back to Messi (0)
 sim.currentIndex = 16;

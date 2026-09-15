@@ -16,7 +16,6 @@ import {
 import { socket } from '../utils/socket';
 import { sfx } from '../utils/soundEffects';
 import FootballLegendsHero3D from './FootballLegendsHero3D';
-import FootballLegendsWall from './FootballLegendsWall';
 
 const POSITION_OPTIONS = [
   { code: 'GK', label: 'Goalkeeper', icon: '🧤', color: 'bg-amber-50 border-amber-300 text-amber-800 selected:bg-amber-500' },
@@ -325,13 +324,6 @@ export default function PlayerPortal({
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* SECTION 3: COMPACT 17-PLAYER FOOTBALL LEGENDS GRID (order-2) */}
-      {/* Two rows on desktop (~420-460px total height)                */}
-      {/* ============================================================ */}
-      <div className="order-2">
-        <FootballLegendsWall />
-      </div>
 
       {/* ============================================================ */}
       {/* CONFIRMED ROSTER MODAL DIALOG (Keeps page compact)           */}
@@ -388,11 +380,11 @@ export default function PlayerPortal({
       )}
 
       {/* ============================================================ */}
-      {/* SECTION 4: FOOTBALL PHILOSOPHY & VALUES (Compact)            */}
+      {/* SECTION 3: FOOTBALL PHILOSOPHY & VALUES (order-2 Compact Footer) */}
       {/* ============================================================ */}
       <div
         id="football-philosophy"
-        className="relative rounded-2xl sm:rounded-3xl bg-white border border-[#E5E7EB] p-5 sm:p-6 shadow-xs space-y-4 overflow-hidden text-center"
+        className="order-2 relative rounded-2xl sm:rounded-3xl bg-white border border-[#E5E7EB] p-4 sm:p-5 shadow-xs space-y-3 overflow-hidden text-center"
       >
         <div className="max-w-2xl mx-auto space-y-1 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FFF8E8] border border-[#D7A52A]/40 text-[#07883F] text-[10px] font-black uppercase tracking-widest">
