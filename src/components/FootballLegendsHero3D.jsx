@@ -3,19 +3,19 @@ import { FOOTBALL_LEGENDS } from '../data/footballLegends';
 import { ChevronLeft, ChevronRight, Sparkles, ArrowDown } from 'lucide-react';
 
 const POSITION_BADGES = {
-  GK: { label: 'GK', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
-  DEF: { label: 'DEF', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
-  MID: { label: 'MID', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-  ST: { label: 'ST', bg: 'bg-orange-100 text-orange-800 border-orange-300' }
+  GK: { label: 'GK', bg: 'bg-amber-500/25 text-amber-300 border-amber-400/50' },
+  DEF: { label: 'DEF', bg: 'bg-blue-500/25 text-blue-300 border-blue-400/50' },
+  MID: { label: 'MID', bg: 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50' },
+  ST: { label: 'ST', bg: 'bg-orange-500/25 text-orange-300 border-orange-400/50' }
 };
 
 const AUTOPLAY_INTERVAL = 3000;
 const RESUME_DELAY = 5000;
 
 /**
- * Cinematic Pseudo-3D Football Legends Hero Carousel
- * Pure CSS transforms + React state. Zero WebGL / Three.js.
- * Windowed 5-card active layout on desktop, 3-card on mobile.
+ * Cinematic Pseudo-3D Football Legends Hero Carousel (Phase 3.3.1)
+ * Full-bleed player photography, dramatic 3D curved awards wall,
+ * illuminated stadium platform, pure CSS transforms. Zero Three.js/WebGL.
  */
 export default function FootballLegendsHero3D({ onRegisterClick }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,7 +82,15 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
     setCurrentIndex((prev) => (prev + offset + totalLegends) % totalLegends);
   };
 
-  // Autoplay loop
+  const handleScrollToRegister = () => {
+    if (onRegisterClick) {
+      onRegisterClick();
+    } else {
+      document.getElementById('register-card')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Autoplay loop (3s interval, 5s resume delay)
   useEffect(() => {
     if (prefersReducedMotion || isHovered || isInteracting || isTabHidden) {
       return;
@@ -128,58 +136,36 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
 
   return (
     <div
-      className="relative w-full rounded-3xl bg-gradient-to-b from-[#FFFDF8] via-[#FFF8E8]/70 to-[#F8F7F2] border border-[#E5E7EB] shadow-md p-4 sm:p-6 lg:p-7 overflow-hidden text-[#0B2341] select-none"
+      className="relative w-full flex flex-col items-center justify-center select-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Stadium floodlight golden glow accent */}
-      <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-[#D7A52A]/10 via-[#FFF8E8]/40 to-transparent pointer-events-none" />
-      <div className="absolute -top-20 right-1/4 w-72 h-72 rounded-full bg-[#07883F]/5 blur-3xl pointer-events-none" />
-
-      {/* Top Header & Intro Banner */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-[#E5E7EB]">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#D7A52A]/40 text-[#07883F] text-xs font-black uppercase tracking-wider mb-2 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#D7A52A]" />
-            <span>MUSEUM 3D ROTATION</span>
-            <span className="text-[10px] text-[#536273] font-bold">
-              ({currentIndex + 1}/{totalLegends})
-            </span>
-          </div>
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-[#0B2341]">
-            LEGENDS <span className="text-[#07883F]">IN MOTION</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-[#536273] font-semibold mt-0.5">
-            17 Icons who defined the beautiful game.
-          </p>
-        </div>
-
-        {/* Quick Registration Anchor CTA */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onRegisterClick) onRegisterClick();
-            else {
-              const el = document.getElementById('register-card');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }
-          }}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#07883F] hover:bg-[#13A653] text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all hover:shadow-md active:scale-98 cursor-pointer"
-        >
-          <span>REGISTER FOR MATCH</span>
-          <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
-        </button>
-      </div>
-
       {/* 3D Carousel Stage */}
       <div
-        className="relative w-full h-[290px] sm:h-[330px] md:h-[360px] flex items-center justify-center overflow-hidden touch-pan-y"
-        style={{ perspective: prefersReducedMotion ? 'none' : '1000px' }}
+        className="relative w-full h-[410px] sm:h-[450px] md:h-[480px] lg:h-[510px] flex items-center justify-center overflow-hidden touch-pan-y"
+        style={{ perspective: prefersReducedMotion ? 'none' : '1100px' }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Subtle Oval Football Awards Gala Stage Platform */}
+        {!prefersReducedMotion && (
+          <div
+            className="absolute bottom-3 sm:bottom-6 w-[88%] max-w-[660px] h-[40px] sm:h-[50px] rounded-[100%] pointer-events-none z-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.35) 0%, rgba(11, 35, 65, 0.75) 60%, rgba(3, 9, 20, 0.95) 85%)',
+              boxShadow: '0 0 50px rgba(215, 165, 42, 0.32), inset 0 0 25px rgba(7, 136, 63, 0.4), 0 25px 50px rgba(0, 0, 0, 0.9)',
+              border: '1.5px solid rgba(215, 165, 42, 0.45)',
+              transform: 'rotateX(70deg)',
+              transformStyle: 'preserve-3d'
+            }}
+          >
+            <div className="absolute inset-1 rounded-[100%] border border-[#10B981]/25" />
+          </div>
+        )}
+
+        {/* 3D Cards Track */}
         <div
-          className="relative w-full h-full flex items-center justify-center"
+          className="relative w-full h-full flex items-center justify-center z-10"
           style={{ transformStyle: prefersReducedMotion ? 'flat' : 'preserve-3d' }}
         >
           {offsets.map((offset) => {
@@ -190,7 +176,7 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
             const isCenter = offset === 0;
             const isDesktopOnly = Math.abs(offset) === 2;
 
-            // Responsive 3D transform calculation
+            // Phase 3.3.1 Approved Exact Mathematical Transform Offsets
             let transformStyle = '';
             let opacityStyle = 1;
             let zIndexStyle = 30;
@@ -200,28 +186,28 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
               opacityStyle = 1;
               zIndexStyle = 30;
             } else if (isCenter) {
-              transformStyle = 'translateX(0%) translateZ(0px) scale(1) rotateY(0deg)';
+              transformStyle = 'translateX(0%) translateZ(0px) rotateY(0deg) scale(1)';
               opacityStyle = 1;
               zIndexStyle = 30;
             } else if (offset === -1) {
-              // Left 1
-              transformStyle = 'translateX(-58%) translateZ(-90px) scale(0.84) rotateY(18deg)';
-              opacityStyle = 0.72;
+              // Left 1: ~82% size, visible curved depth
+              transformStyle = 'translateX(-65%) translateZ(-80px) rotateY(18deg) scale(0.82)';
+              opacityStyle = 0.90;
               zIndexStyle = 20;
             } else if (offset === 1) {
-              // Right 1
-              transformStyle = 'translateX(58%) translateZ(-90px) scale(0.84) rotateY(-18deg)';
-              opacityStyle = 0.72;
+              // Right 1: ~82% size, visible curved depth
+              transformStyle = 'translateX(65%) translateZ(-80px) rotateY(-18deg) scale(0.82)';
+              opacityStyle = 0.90;
               zIndexStyle = 20;
             } else if (offset === -2) {
-              // Left 2 (Desktop only)
-              transformStyle = 'translateX(-104%) translateZ(-180px) scale(0.68) rotateY(28deg)';
-              opacityStyle = 0.38;
+              // Left 2 (Desktop only): ~65% size
+              transformStyle = 'translateX(-110%) translateZ(-160px) rotateY(26deg) scale(0.65)';
+              opacityStyle = 0.65;
               zIndexStyle = 10;
             } else if (offset === 2) {
-              // Right 2 (Desktop only)
-              transformStyle = 'translateX(104%) translateZ(-180px) scale(0.68) rotateY(-28deg)';
-              opacityStyle = 0.38;
+              // Right 2 (Desktop only): ~65% size
+              transformStyle = 'translateX(110%) translateZ(-160px) rotateY(-26deg) scale(0.65)';
+              opacityStyle = 0.65;
               zIndexStyle = 10;
             }
 
@@ -235,17 +221,17 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
                   zIndex: zIndexStyle,
                   transition: prefersReducedMotion
                     ? 'opacity 150ms ease'
-                    : 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1), opacity 700ms ease',
+                    : 'transform 750ms cubic-bezier(0.22, 1, 0.36, 1), opacity 750ms ease',
                   willChange: 'transform, opacity',
                   backfaceVisibility: 'hidden',
                   WebkitBackfaceVisibility: 'hidden'
                 }}
-                className={`absolute w-[185px] sm:w-[215px] md:w-[235px] aspect-[4/5] rounded-2xl bg-white border overflow-hidden flex flex-col justify-between select-none cursor-pointer transition-shadow duration-300 ${
+                className={`absolute w-[240px] sm:w-[270px] md:w-[300px] lg:w-[320px] h-[370px] sm:h-[420px] md:h-[450px] lg:h-[475px] rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col justify-between select-none cursor-pointer transition-shadow duration-300 group ${
                   isDesktopOnly ? 'hidden sm:flex' : 'flex'
                 } ${
                   isCenter
-                    ? 'border-[#D7A52A] shadow-2xl shadow-[#07883F]/15 ring-2 ring-[#D7A52A]/90'
-                    : 'border-[#E5E7EB] hover:border-[#07883F] shadow-md hover:shadow-lg'
+                    ? 'bg-gradient-to-b from-[#0D1C2E] via-[#081321] to-[#040A12] border-2 border-[#D7A52A] shadow-[0_0_40px_rgba(215,165,42,0.35),0_20px_50px_rgba(0,0,0,0.9)] ring-1 ring-[#D7A52A]/60'
+                    : 'bg-gradient-to-b from-[#0A1624]/95 via-[#060E18]/95 to-[#03070D]/95 border border-[#D7A52A]/30 hover:border-[#07883F] shadow-xl hover:shadow-2xl'
                 }`}
                 role="button"
                 tabIndex={0}
@@ -256,8 +242,8 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
                   }
                 }}
               >
-                {/* Card Top: Photo Container */}
-                <div className="relative w-full h-[66%] bg-[#F8F7F2] overflow-hidden flex items-center justify-center border-b border-[#E5E7EB]/80">
+                {/* Full-Bleed Player Photography Container (77% Card Height) */}
+                <div className="relative w-full h-[77%] overflow-hidden bg-[#071320] flex items-center justify-center">
                   {!hasImageFailed ? (
                     <img
                       src={legend.image}
@@ -266,47 +252,53 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
                       decoding="async"
                       {...(isCenter ? { fetchpriority: 'high' } : {})}
                       onError={() => handleImageError(legend.id)}
-                      style={{ objectPosition: legend.objectPosition || 'center 25%' }}
-                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: legend.objectPosition || 'center 25%',
+                        transform: 'scale(1.14)'
+                      }}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-120"
                     />
                   ) : (
-                    <div className="w-full h-full p-2 flex flex-col items-center justify-center text-center bg-gradient-to-b from-[#FFF8E8] to-[#FFFFFF]">
-                      <span className="text-xl">{legend.flag}</span>
-                      <span className="text-[10px] font-black text-[#0B2341] mt-1">{legend.shortName}</span>
+                    <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center bg-gradient-to-b from-[#0B2341] to-[#030914]">
+                      <span className="text-3xl">{legend.flag}</span>
+                      <span className="text-sm font-black text-white mt-2">{legend.shortName}</span>
                     </div>
                   )}
 
-                  {/* Corner Position & Flag Badge */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur-xs border border-[#E5E7EB] shadow-xs text-xs">
-                    <span>{legend.flag}</span>
-                    <span className="text-[9px] font-black text-[#0B2341]">{legend.position}</span>
+                  {/* Dark Vignette Bottom Gradient for Seamless Typography Transition */}
+                  <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#081321] via-[#081321]/80 to-transparent pointer-events-none" />
+
+                  {/* Top Left: Country Flag + Position Pill */}
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 shadow-md text-xs">
+                    <span className="text-sm">{legend.flag}</span>
+                    <span className="text-[10px] font-black text-white">{legend.position}</span>
                   </div>
 
-                  {/* Era pill on top right */}
-                  <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-white/95 backdrop-blur-xs border border-[#E5E7EB] text-[8px] font-bold text-[#536273]">
+                  {/* Top Right: Golden Era Pill */}
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-[#D7A52A]/20 backdrop-blur-md border border-[#D7A52A]/50 text-[9px] font-extrabold text-[#FDE047] shadow-xs">
                     {legend.era}
                   </div>
                 </div>
 
-                {/* Card Bottom: Metadata */}
-                <div className="p-2 sm:p-2.5 bg-white flex flex-col justify-between flex-1">
+                {/* Lower Information Strip (23% Card Height) */}
+                <div className="p-3 sm:p-3.5 bg-[#081321] flex flex-col justify-between flex-1 relative z-10 border-t border-white/10">
                   <div>
                     <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-black text-xs sm:text-sm text-[#0B2341] tracking-tight truncate">
+                      <h3 className="font-black text-sm sm:text-base lg:text-lg text-white tracking-wider truncate group-hover:text-[#FDE047] transition-colors">
                         {legend.shortName}
                       </h3>
-                      <span className={`px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-black uppercase border ${posStyle.bg}`}>
+                      <span className={`px-2 py-0.5 rounded text-[8px] sm:text-[9px] font-black uppercase border tracking-wider ${posStyle.bg}`}>
                         {posStyle.label}
                       </span>
                     </div>
-                    <p className="text-[10px] sm:text-[11px] font-bold text-[#07883F] truncate mt-0.5">
+                    <p className="text-[11px] sm:text-xs font-bold text-[#10B981] truncate mt-0.5">
                       {legend.label}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between text-[9px] text-[#536273] font-semibold border-t border-[#E5E7EB]/60 pt-1 mt-1">
-                    <span className="truncate">{legend.nationality}</span>
-                    <span className="text-[#D7A52A] font-bold">★ LEGEND</span>
+                  <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-300 font-semibold border-t border-white/10 pt-1.5 mt-1">
+                    <span className="truncate">{legend.name}</span>
+                    <span className="text-[#D7A52A] font-extrabold shrink-0">★ {legend.nationality}</span>
                   </div>
                 </div>
               </div>
@@ -314,28 +306,28 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
           })}
         </div>
 
-        {/* Carousel Navigation Arrow Controls */}
+        {/* Carousel Navigation Arrow Controls - Positioned Tight to Stage */}
         <button
           type="button"
           onClick={handlePrevClick}
           aria-label="Previous legend"
-          className="absolute left-1 sm:left-3 z-40 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white border border-[#E5E7EB] hover:border-[#07883F] text-[#0B2341] shadow-md hover:shadow-lg transition-all active:scale-90 cursor-pointer"
+          className="absolute left-1 sm:left-2 lg:left-4 z-40 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-[#D7A52A]/60 hover:border-[#D7A52A] text-white shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
-          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#0B2341]" />
+          <ChevronLeft className="w-5 h-5 text-white" />
         </button>
 
         <button
           type="button"
           onClick={handleNextClick}
           aria-label="Next legend"
-          className="absolute right-1 sm:right-3 z-40 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white border border-[#E5E7EB] hover:border-[#07883F] text-[#0B2341] shadow-md hover:shadow-lg transition-all active:scale-90 cursor-pointer"
+          className="absolute right-1 sm:right-2 lg:right-4 z-40 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-[#D7A52A]/60 hover:border-[#D7A52A] text-white shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
-          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#0B2341]" />
+          <ChevronRight className="w-5 h-5 text-white" />
         </button>
       </div>
 
-      {/* Carousel Footer Indicator & Status */}
-      <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 mt-1 border-t border-[#E5E7EB] text-xs text-[#536273]">
+      {/* Carousel Footer Indicator & Player Navigation Bar */}
+      <div className="relative z-10 w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 px-2 text-xs text-slate-300">
         {/* Player Dots Navigation */}
         <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-1 max-w-full">
           {FOOTBALL_LEGENDS.map((leg, idx) => (
@@ -349,23 +341,37 @@ export default function FootballLegendsHero3D({ onRegisterClick }) {
               aria-label={`Jump to ${leg.shortName}`}
               className={`transition-all rounded-full cursor-pointer ${
                 idx === currentIndex
-                  ? 'w-5 sm:w-6 h-2 bg-[#07883F]'
-                  : 'w-2 h-2 bg-[#E5E7EB] hover:bg-[#D7A52A]'
+                  ? 'w-6 sm:w-7 h-2 bg-[#D7A52A] shadow-[0_0_8px_#D7A52A]'
+                  : 'w-2 h-2 bg-white/25 hover:bg-white/60'
               }`}
             />
           ))}
         </div>
 
         {/* Current Active Legend Summary Pill */}
-        <div className="flex items-center gap-2 text-[11px] font-bold">
-          <span className="text-[#0B2341] font-black">{currentLegend.name}</span>
-          <span className="text-[#07883F]">({currentLegend.label})</span>
+        <div className="flex items-center gap-2 text-[11px] font-bold px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white">
+          <span className="font-black text-white">{currentLegend.name}</span>
+          <span className="text-[#10B981]">({currentLegend.label})</span>
+          <span className="text-white/40">•</span>
+          <span className="text-[#D7A52A]">{currentIndex + 1}/{totalLegends}</span>
           {isInteracting && (
-            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-in fade-in">
+            <span className="text-[10px] text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-400/40">
               Paused (5s)
             </span>
           )}
         </div>
+      </div>
+
+      {/* Quick Registration Anchor CTA on Mobile below Carousel */}
+      <div className="sm:hidden mt-4 w-full flex justify-center">
+        <button
+          type="button"
+          onClick={handleScrollToRegister}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#07883F] hover:bg-[#13A653] text-white text-xs font-black uppercase tracking-wider shadow-lg border border-[#10B981]/50 cursor-pointer"
+        >
+          <span>REGISTER FOR MATCH</span>
+          <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
+        </button>
       </div>
     </div>
   );
