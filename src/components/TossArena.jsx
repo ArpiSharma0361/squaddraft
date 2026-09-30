@@ -34,11 +34,7 @@ export default function TossArena({
     rawWinner &&
     captain1 &&
     captain2 &&
-    (rawWinner.id === captain1.id || rawWinner.id === captain2.id ||
-     (rawWinner.name && (
-       rawWinner.name.toLowerCase() === captain1.name?.toLowerCase() ||
-       rawWinner.name.toLowerCase() === captain2.name?.toLowerCase()
-     ))) &&
+    (rawWinner.id === captain1.id || rawWinner.id === captain2.id) &&
     (!currentMatchId || tossState?.matchId === currentMatchId) &&
     tossState?.captain1Id === captain1.id &&
     tossState?.captain2Id === captain2.id

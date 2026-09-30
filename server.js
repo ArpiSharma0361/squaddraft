@@ -29,7 +29,8 @@ import {
   generateMatchId,
   dbSaveActiveFixture,
   dbGetActiveFixture,
-  dbClearActiveFixture
+  dbClearActiveFixture,
+  dbFlushActiveFixture
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,8 +102,8 @@ function validateAndSanitizeTossState() {
   }
 
   if (ts.winner) {
-    const isCap1Winner = ts.winner.id === c1.id || (ts.winner.name && c1.name && ts.winner.name.toLowerCase() === c1.name.toLowerCase());
-    const isCap2Winner = ts.winner.id === c2.id || (ts.winner.name && c2.name && ts.winner.name.toLowerCase() === c2.name.toLowerCase());
+    const isCap1Winner = ts.winner.id === c1.id;
+    const isCap2Winner = ts.winner.id === c2.id;
     const isWinnerValid = isCap1Winner || isCap2Winner;
 
     // Strict Ownership Validation: NO permissive checks (!ts.matchId) allowed
@@ -120,8 +121,8 @@ function validateAndSanitizeTossState() {
 
   if (roomState.firstPickCaptain) {
     const fpc = roomState.firstPickCaptain;
-    const isCap1 = fpc.id === c1.id || (fpc.name && c1.name && fpc.name.toLowerCase() === c1.name.toLowerCase());
-    const isCap2 = fpc.id === c2.id || (fpc.name && c2.name && fpc.name.toLowerCase() === c2.name.toLowerCase());
+    const isCap1 = fpc.id === c1.id;
+    const isCap2 = fpc.id === c2.id;
     if (!isCap1 && !isCap2 || !roomState.tossState.winner) {
       roomState.firstPickCaptain = null;
     }
@@ -261,6 +262,10 @@ function executePlayerPick(player, verifiedRole) {
   const ds = roomState.draftState;
   if (!ds) {
     return { success: false, status: 400, message: 'Draft state not initialized.' };
+  }
+
+  if (!player || !player.id) {
+    return { success: false, status: 400, message: 'Invalid player selected for draft.' };
   }
 
   if (ds.isPaused) {
@@ -735,13 +740,18 @@ io.on('connection', (socket) => {
   });
 
   // Draft Pick Player with Cryptographic Captain Token Authorization
-  socket.on('draft_pick_player', async ({ player, token, role, pickedByTurn }) => {
+  socket.on('draft_pick_player', async ({ player, playerId, token, role, pickedByTurn }) => {
     const verifiedRole = await resolveCaptainRole(token);
     if (!verifiedRole) {
       socket.emit('error_message', 'Invalid or missing captain token. Unauthorized pick attempt.');
       return;
     }
-    const targetPlayer = player || (roomState.draftState?.availablePlayers || []).find(p => p.id === (player?.id || player));
+    const pId = (player && player.id) ? player.id : (playerId || player);
+    const targetPlayer = (roomState.draftState?.availablePlayers || []).find(p => p.id === pId) || (typeof player === 'object' ? player : null);
+    if (!targetPlayer) {
+      socket.emit('error_message', 'Invalid player selected for draft.');
+      return;
+    }
     const result = executePlayerPick(targetPlayer, verifiedRole);
     if (!result.success) {
       socket.emit('error_message', result.message);

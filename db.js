@@ -233,6 +233,7 @@ async function createTables() {
       id TEXT PRIMARY KEY,
       match_id TEXT NOT NULL,
       state_json TEXT NOT NULL,
+      state_version INTEGER DEFAULT 0,
       updated_at TEXT NOT NULL
     )
   `);
@@ -245,6 +246,18 @@ async function createTables() {
       expires_at TEXT NOT NULL
     )
   `);
+
+  // Migration safeguard: Ensure state_version column exists in active_fixture table
+  try {
+    if (isPg) {
+      await query(`ALTER TABLE active_fixture ADD COLUMN IF NOT EXISTS state_version INTEGER DEFAULT 0`);
+    } else {
+      const cols = await query(`PRAGMA table_info(active_fixture)`);
+      if (!cols.some(c => c.name === 'state_version')) {
+        await query(`ALTER TABLE active_fixture ADD COLUMN state_version INTEGER DEFAULT 0`);
+      }
+    }
+  } catch (e) {}
 
   // Migration safeguard: Ensure is_revoked column exists in captains table
   try {
@@ -541,26 +554,62 @@ export function generateMatchId() {
   return `match_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 }
 
-export async function dbSaveActiveFixture(matchId, state) {
-  if (!matchId || !state) return;
-  const json = JSON.stringify(state);
+let saveQueue = Promise.resolve();
+let pendingSave = null;
+
+async function executeActiveFixtureSave(matchId, payload, version) {
   const now = new Date().toISOString();
-  const existing = await query('SELECT id FROM active_fixture WHERE id = $1', ['current']);
+  const existing = await query('SELECT id, match_id, state_version FROM active_fixture WHERE id = $1', ['current']);
   if (existing.length > 0) {
-    await query(
-      'UPDATE active_fixture SET match_id = $1, state_json = $2, updated_at = $3 WHERE id = $4',
-      [matchId, json, now, 'current']
-    );
+    const isSameMatch = existing[0].match_id === matchId;
+    const currentVer = existing[0].state_version || 0;
+    // Within the same match, enforce monotonic ordering. For a new match fixture, always accept!
+    if (!isSameMatch || version >= currentVer) {
+      await query(
+        'UPDATE active_fixture SET match_id = $1, state_json = $2, state_version = $3, updated_at = $4 WHERE id = $5',
+        [matchId, payload, version, now, 'current']
+      );
+    }
   } else {
     await query(
-      'INSERT INTO active_fixture (id, match_id, state_json, updated_at) VALUES ($1, $2, $3, $4)',
-      ['current', matchId, json, now]
+      'INSERT INTO active_fixture (id, match_id, state_json, state_version, updated_at) VALUES ($1, $2, $3, $4, $5)',
+      ['current', matchId, payload, version, now]
     );
   }
 }
 
+export function dbSaveActiveFixture(matchId, state) {
+  if (!matchId || !state) return Promise.resolve();
+
+  // Increment monotonic version directly on state
+  state.stateVersion = (state.stateVersion || 0) + 1;
+  const version = state.stateVersion;
+  const payload = JSON.stringify(state);
+
+  // Buffer as the latest pending write
+  pendingSave = { matchId, payload, version };
+
+  // Serialize onto promise queue
+  saveQueue = saveQueue.then(async () => {
+    if (!pendingSave) return;
+    const toWrite = pendingSave;
+    pendingSave = null;
+    try {
+      await executeActiveFixtureSave(toWrite.matchId, toWrite.payload, toWrite.version);
+    } catch (err) {
+      console.error('Database active fixture write error:', err);
+    }
+  });
+
+  return saveQueue;
+}
+
+export async function dbFlushActiveFixture() {
+  await saveQueue;
+}
+
 export async function dbGetActiveFixture() {
-  const rows = await query('SELECT match_id, state_json, updated_at FROM active_fixture WHERE id = $1', ['current']);
+  const rows = await query('SELECT match_id, state_json, state_version, updated_at FROM active_fixture WHERE id = $1', ['current']);
   if (rows.length === 0) return null;
   try {
     return JSON.parse(rows[0].state_json);
