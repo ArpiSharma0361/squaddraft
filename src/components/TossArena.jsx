@@ -24,7 +24,26 @@ export default function TossArena({
   const isFlipping = tossState?.isFlipping || false;
   const coinResult = tossState?.coinResult || null;
   const callerChoice = tossState?.callerChoice || 'heads';
-  const tossWinner = tossState?.winner || firstPickCaptain;
+
+  // Raw toss winner from state
+  const rawWinner = tossState?.winner || firstPickCaptain;
+
+  // Frontend Guard: A toss result is valid ONLY if it belongs to current captain1 and captain2
+  const isValidTossWinner = Boolean(
+    rawWinner &&
+    captain1 &&
+    captain2 &&
+    (rawWinner.id === captain1.id || rawWinner.id === captain2.id ||
+     (rawWinner.name && (
+       rawWinner.name.toLowerCase() === captain1.name?.toLowerCase() ||
+       rawWinner.name.toLowerCase() === captain2.name?.toLowerCase()
+     ))) &&
+    (!tossState?.captain1Id || tossState.captain1Id === captain1.id) &&
+    (!tossState?.captain2Id || tossState.captain2Id === captain2.id)
+  );
+
+  const effectiveTossWinner = isValidTossWinner ? rawWinner : null;
+  const tossWinner = effectiveTossWinner;
 
   const isCaptain1 = myRole === 'cap1';
   const isCaptain2 = myRole === 'cap2';
@@ -47,8 +66,8 @@ export default function TossArena({
 
   // Celebration on winner reveal
   useEffect(() => {
-    if (tossWinner && !prevWinnerRef.current) {
-      prevWinnerRef.current = tossWinner;
+    if (effectiveTossWinner && !prevWinnerRef.current) {
+      prevWinnerRef.current = effectiveTossWinner;
       sfx.playWhistle();
       sfx.playBallKick();
       try {
@@ -59,12 +78,19 @@ export default function TossArena({
         });
       } catch (e) {}
     }
-  }, [tossWinner]);
+  }, [effectiveTossWinner]);
 
   const handleCoinFlip = (choice = callerChoice) => {
-    if (!isCaptain1 || isFlipping || tossWinner) return;
+    if (!isCaptain1 || isFlipping || effectiveTossWinner) return;
     socket.emit('toss_call_and_flip', { choice, token: captainToken });
     sfx.playCoinToss();
+  };
+
+  const sanitizedTossState = {
+    ...(tossState || {}),
+    winner: effectiveTossWinner,
+    coinResult: effectiveTossWinner ? tossState?.coinResult : null,
+    isFlipping
   };
 
   const roomStateMock = {
@@ -74,7 +100,7 @@ export default function TossArena({
     team2Name,
     team1Kit,
     team2Kit,
-    tossState,
+    tossState: sanitizedTossState,
     roomId: 'main'
   };
 
@@ -173,7 +199,7 @@ export default function TossArena({
 
         {/* Caller Choice Stage */}
         <div className="py-4 flex flex-col items-center justify-center">
-          {isCaptain1 && !tossWinner && !isFlipping ? (
+          {isCaptain1 && !effectiveTossWinner && !isFlipping ? (
             <div className="space-y-3 text-center">
               <span className="text-xs font-black uppercase tracking-wider text-cyan-300 block">
                 👑 Captain 1: Choose Heads or Tails to Flip
@@ -197,7 +223,7 @@ export default function TossArena({
                 </button>
               </div>
             </div>
-          ) : isCaptain2 && !tossWinner && !isFlipping ? (
+          ) : isCaptain2 && !effectiveTossWinner && !isFlipping ? (
             <div className="px-6 py-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-center space-y-1">
               <div className="text-xs font-black text-amber-300 flex items-center justify-center space-x-1.5">
                 <span className="animate-spin">⏳</span>
@@ -207,7 +233,7 @@ export default function TossArena({
                 The authoritative coin flip will automatically start once Captain 1 calls Heads or Tails.
               </p>
             </div>
-          ) : !tossWinner && !isFlipping ? (
+          ) : !effectiveTossWinner && !isFlipping ? (
             <div className="px-6 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center text-xs font-bold text-slate-300">
               Waiting for Captain 1 ({captain1?.name}) to call Heads or Tails...
             </div>
@@ -238,20 +264,24 @@ export default function TossArena({
 
         {/* Status & Action Buttons Below Arena */}
         <div className="pt-4 flex flex-col items-center justify-center space-y-4">
-          {tossWinner ? (
+          {effectiveTossWinner ? (
             <div className="w-full max-w-md bg-gradient-to-r from-blue-950 via-slate-900 to-purple-950 border border-cyan-500/50 p-5 rounded-2xl text-center space-y-2 shadow-2xl">
               <div className="text-xs font-black uppercase tracking-widest text-cyan-400">
                 ★ TOSS RESULT CONFIRMED ★
               </div>
               <div className="text-lg sm:text-xl font-black text-white">
-                🏆 {tossWinner?.name?.toUpperCase()} WINS THE TOSS!
+                🏆 {effectiveTossWinner?.name?.toUpperCase()} WINS THE TOSS!
               </div>
               <div className="text-xs font-bold text-slate-300">
-                FIRST PICK: <span className="text-cyan-300 font-black">{tossWinner?.name}</span> ({tossWinner?.id === captain1?.id ? team1Name : team2Name})
+                FIRST PICK: <span className="text-cyan-300 font-black">{effectiveTossWinner?.name}</span> ({effectiveTossWinner?.id === captain1?.id ? team1Name : team2Name})
               </div>
               <p className="text-[11px] text-slate-400">
                 Outcome authoritatively verified by server. Ready to launch draft.
               </p>
+            </div>
+          ) : rawWinner && !isValidTossWinner ? (
+            <div className="px-6 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold text-center">
+              Waiting for current match toss
             </div>
           ) : isFlipping ? (
             <div className="px-6 py-3 rounded-xl bg-amber-500/20 border border-amber-400 text-amber-300 font-black text-sm uppercase tracking-wider animate-pulse">
@@ -294,7 +324,7 @@ export default function TossArena({
               )}
             </div>
 
-            {tossWinner && (
+            {effectiveTossWinner && (
               <button
                 onClick={onProceed}
                 className="ml-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-sm flex items-center space-x-2 shadow-lg shadow-cyan-500/30 transition-all cursor-pointer transform hover:scale-105 active:scale-95"

@@ -62,6 +62,67 @@ const DEMO_PLAYERS = [
   { id: 'p_fwd4', name: 'Rizwan', position: 'FWD' }
 ];
 
+function createCleanTossState(roomId = 'main', cap1 = null, cap2 = null) {
+  return {
+    matchId: roomId || 'main',
+    captain1Id: cap1 ? cap1.id : null,
+    captain2Id: cap2 ? cap2.id : null,
+    isFlipping: false,
+    callerChoice: 'heads',
+    coinResult: null,
+    winner: null
+  };
+}
+
+function validateAndSanitizeTossState() {
+  if (!roomState) return;
+  const matchId = roomState.roomId || 'main';
+  const c1 = roomState.captain1;
+  const c2 = roomState.captain2;
+
+  if (!roomState.tossState) {
+    roomState.tossState = createCleanTossState(matchId, c1, c2);
+    roomState.firstPickCaptain = null;
+    return;
+  }
+
+  const ts = roomState.tossState;
+  if (!c1 || !c2) {
+    if (ts.winner || ts.isFlipping || roomState.firstPickCaptain) {
+      roomState.tossState = createCleanTossState(matchId, c1, c2);
+      roomState.firstPickCaptain = null;
+    }
+    return;
+  }
+
+  if (ts.winner) {
+    const isCap1 = ts.winner.id === c1.id || (ts.winner.name && c1.name && ts.winner.name.toLowerCase() === c1.name.toLowerCase());
+    const isCap2 = ts.winner.id === c2.id || (ts.winner.name && c2.name && ts.winner.name.toLowerCase() === c2.name.toLowerCase());
+    const matchesMatch = !ts.matchId || ts.matchId === matchId;
+    const matchesCap1 = !ts.captain1Id || ts.captain1Id === c1.id;
+    const matchesCap2 = !ts.captain2Id || ts.captain2Id === c2.id;
+
+    if (!isCap1 && !isCap2) {
+      console.warn(`⚠️ [Toss Security] Stale toss winner detected ("${ts.winner.name}") - does not match active captains ("${c1.name}" vs "${c2.name}"). Invalidating toss state.`);
+      roomState.tossState = createCleanTossState(matchId, c1, c2);
+      roomState.firstPickCaptain = null;
+    } else if (!matchesMatch || !matchesCap1 || !matchesCap2) {
+      console.warn(`⚠️ [Toss Security] Toss metadata mismatch. Invalidating stale toss.`);
+      roomState.tossState = createCleanTossState(matchId, c1, c2);
+      roomState.firstPickCaptain = null;
+    }
+  }
+
+  if (roomState.firstPickCaptain) {
+    const fpc = roomState.firstPickCaptain;
+    const isCap1 = fpc.id === c1.id || (fpc.name && c1.name && fpc.name.toLowerCase() === c1.name.toLowerCase());
+    const isCap2 = fpc.id === c2.id || (fpc.name && c2.name && fpc.name.toLowerCase() === c2.name.toLowerCase());
+    if (!isCap1 && !isCap2) {
+      roomState.firstPickCaptain = null;
+    }
+  }
+}
+
 function createInitialState(roomId = 'main') {
   return {
     roomId,
@@ -79,12 +140,7 @@ function createInitialState(roomId = 'main') {
     roomStep: 'toss',
     firstPickCaptain: null,
     matchScore: null,
-    tossState: {
-      isFlipping: false,
-      callerChoice: 'heads',
-      coinResult: null,
-      winner: null
-    },
+    tossState: createCleanTossState(roomId, null, null),
     draftState: {
       team1: [],
       team2: [],
@@ -133,6 +189,16 @@ function loadInitialStateFromBackup() {
       if (!loaded.roomId) loaded.roomId = 'main';
       if (!loaded.cap1Token) loaded.cap1Token = generateSecureToken();
       if (!loaded.cap2Token) loaded.cap2Token = generateSecureToken();
+      if (loaded.tossState) {
+        const c1 = loaded.captain1;
+        const c2 = loaded.captain2;
+        const w = loaded.tossState.winner;
+        const isValid = w && c1 && c2 && (w.id === c1.id || w.id === c2.id);
+        if (!isValid) {
+          loaded.tossState = createCleanTossState(loaded.roomId || 'main', c1, c2);
+          loaded.firstPickCaptain = null;
+        }
+      }
       return loaded;
     }
   } catch (err) {
@@ -146,6 +212,7 @@ if (!roomState.roomId) roomState.roomId = 'main';
 
 // SAFEGUARD 3: Live persistence writes to database. JSON file is NOT modified during live operation.
 function broadcastState() {
+  validateAndSanitizeTossState();
   io.emit('room_state_updated', roomState);
 }
 
@@ -354,6 +421,8 @@ io.on('connection', (socket) => {
     roomState.players = [];
     roomState.captain1 = null;
     roomState.captain2 = null;
+    roomState.tossState = createCleanTossState(roomState.roomId, null, null);
+    roomState.firstPickCaptain = null;
     await dbRevokeCaptainTokens(roomState.roomId).catch(() => {});
     broadcastState();
   });
@@ -418,8 +487,25 @@ io.on('connection', (socket) => {
       socket.emit('error_message', 'Admin authorization required to update match configuration.');
       return;
     }
-    if (config.matchTitle !== undefined) roomState.matchTitle = config.matchTitle;
+
+    // Active Draft Safety: Block captain reassignment if draft has already started
+    const isDraftingOrActive = roomState.roomStep === 'draft' || roomState.roomStep === 'pitch' || roomState.roomStep === 'complete';
+    if (isDraftingOrActive && (config.captain1 !== undefined || config.captain2 !== undefined)) {
+      const isChangingCap1 = config.captain1 && roomState.captain1 && config.captain1.id !== roomState.captain1.id;
+      const isChangingCap2 = config.captain2 && roomState.captain2 && config.captain2.id !== roomState.captain2.id;
+      if (isChangingCap1 || isChangingCap2) {
+        socket.emit('error_message', 'Cannot change captains while a live draft or match is in progress. Reset or complete the match first.');
+        return;
+      }
+    }
+
+    let captainsChanged = false;
     if (config.captain1 !== undefined) {
+      const oldCap1Id = roomState.captain1?.id;
+      const newCap1Id = config.captain1?.id;
+      if (oldCap1Id !== newCap1Id) {
+        captainsChanged = true;
+      }
       roomState.captain1 = config.captain1;
       roomState.cap1Token = generateSecureToken();
       roomState.matchScore = null;
@@ -428,6 +514,11 @@ io.on('connection', (socket) => {
       }
     }
     if (config.captain2 !== undefined) {
+      const oldCap2Id = roomState.captain2?.id;
+      const newCap2Id = config.captain2?.id;
+      if (oldCap2Id !== newCap2Id) {
+        captainsChanged = true;
+      }
       roomState.captain2 = config.captain2;
       roomState.cap2Token = generateSecureToken();
       roomState.matchScore = null;
@@ -435,11 +526,24 @@ io.on('connection', (socket) => {
         await dbSetCaptainToken(roomState.roomId, 2, config.captain2.id, roomState.team2Kit, roomState.cap2Token).catch(() => {});
       }
     }
+
+    // Automatically clear toss and firstPickCaptain when captains change before draft
+    if (captainsChanged && !isDraftingOrActive) {
+      roomState.tossState = createCleanTossState(roomState.roomId, roomState.captain1, roomState.captain2);
+      roomState.firstPickCaptain = null;
+      if (roomState.draftState) {
+        roomState.draftState.currentTurn = 1;
+      }
+    }
+
+    if (config.matchTitle !== undefined) roomState.matchTitle = config.matchTitle;
     if (config.team1Kit !== undefined) roomState.team1Kit = config.team1Kit;
     if (config.team2Kit !== undefined) roomState.team2Kit = config.team2Kit;
     if (config.team1Name !== undefined) roomState.team1Name = config.team1Name;
     if (config.team2Name !== undefined) roomState.team2Name = config.team2Name;
     if (config.publicUrl !== undefined) roomState.publicUrl = config.publicUrl;
+
+    validateAndSanitizeTossState();
     broadcastState();
   });
 
@@ -491,9 +595,15 @@ io.on('connection', (socket) => {
     });
 
     setTimeout(() => {
-      roomState.tossState.isFlipping = false;
-      roomState.tossState.coinResult = outcome;
-      roomState.tossState.winner = winner;
+      roomState.tossState = {
+        matchId: roomState.roomId || 'main',
+        captain1Id: roomState.captain1 ? roomState.captain1.id : null,
+        captain2Id: roomState.captain2 ? roomState.captain2.id : null,
+        isFlipping: false,
+        callerChoice: cleanChoice,
+        coinResult: outcome,
+        winner: winner
+      };
       roomState.firstPickCaptain = winner;
       if (roomState.draftState) {
         roomState.draftState.currentTurn = (winner && roomState.captain1 && winner.id === roomState.captain1.id) ? 1 : 2;
@@ -535,9 +645,15 @@ io.on('connection', (socket) => {
     });
 
     setTimeout(() => {
-      roomState.tossState.isFlipping = false;
-      roomState.tossState.coinResult = outcome;
-      roomState.tossState.winner = winner;
+      roomState.tossState = {
+        matchId: roomState.roomId || 'main',
+        captain1Id: roomState.captain1 ? roomState.captain1.id : null,
+        captain2Id: roomState.captain2 ? roomState.captain2.id : null,
+        isFlipping: false,
+        callerChoice: cleanChoice,
+        coinResult: outcome,
+        winner: winner
+      };
       roomState.firstPickCaptain = winner;
       if (roomState.draftState) {
         roomState.draftState.currentTurn = (winner && roomState.captain1 && winner.id === roomState.captain1.id) ? 1 : 2;
@@ -569,12 +685,7 @@ io.on('connection', (socket) => {
       socket.emit('error_message', 'Cannot reset toss once live draft has started. Toss result is immutable.');
       return;
     }
-    roomState.tossState = {
-      isFlipping: false,
-      callerChoice: 'heads',
-      coinResult: null,
-      winner: null
-    };
+    roomState.tossState = createCleanTossState(roomState.roomId, roomState.captain1, roomState.captain2);
     roomState.firstPickCaptain = null;
     broadcastState();
   });
@@ -1143,13 +1254,8 @@ app.post('/api/draft/reset-toss', async (req, res) => {
   if (roomState.roomStep === 'draft' || roomState.roomStep === 'pitch' || roomState.roomStep === 'complete') {
     return res.status(400).json({ error: 'Cannot reset coin toss once live draft has started. Toss result is immutable.' });
   }
-  roomState.tossState = {
-    isFlipping: false,
-    callerChoice: 'heads',
-    coinResult: null,
-    winner: null
-  };
-  roomState.firstPickCaptain = null;
+    roomState.tossState = createCleanTossState(roomState.roomId, roomState.captain1, roomState.captain2);
+    roomState.firstPickCaptain = null;
   if (req.body.force) {
     roomState.roomStep = 'toss';
   }

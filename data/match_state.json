@@ -99,20 +99,15 @@
   "team1Name": "Team White",
   "team2Name": "Team Black",
   "roomStep": "draft",
-  "firstPickCaptain": {
-    "id": "p_cap2",
-    "name": "Ayaan",
-    "position": "MID"
-  },
+  "firstPickCaptain": null,
   "tossState": {
+    "matchId": "main",
+    "captain1Id": null,
+    "captain2Id": null,
     "isFlipping": false,
     "callerChoice": "heads",
-    "coinResult": "tails",
-    "winner": {
-      "id": "p_cap2",
-      "name": "Ayaan",
-      "position": "MID"
-    }
+    "coinResult": null,
+    "winner": null
   },
   "draftState": {
     "team1": [
