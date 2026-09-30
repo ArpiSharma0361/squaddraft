@@ -25,7 +25,11 @@ import {
   dbSaveMatchScore,
   dbGetMatchScore,
   dbArchiveMatch,
-  dbGetPublicHistory
+  dbGetPublicHistory,
+  generateMatchId,
+  dbSaveActiveFixture,
+  dbGetActiveFixture,
+  dbClearActiveFixture
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,9 +66,10 @@ const DEMO_PLAYERS = [
   { id: 'p_fwd4', name: 'Rizwan', position: 'FWD' }
 ];
 
-function createCleanTossState(roomId = 'main', cap1 = null, cap2 = null) {
+function createCleanTossState(matchId = null, cap1 = null, cap2 = null) {
+  const finalMatchId = matchId || (typeof roomState !== 'undefined' && roomState ? roomState.currentMatchId : null);
   return {
-    matchId: roomId || 'main',
+    matchId: finalMatchId,
     captain1Id: cap1 ? cap1.id : null,
     captain2Id: cap2 ? cap2.id : null,
     isFlipping: false,
@@ -76,12 +81,12 @@ function createCleanTossState(roomId = 'main', cap1 = null, cap2 = null) {
 
 function validateAndSanitizeTossState() {
   if (!roomState) return;
-  const matchId = roomState.roomId || 'main';
+  const currentMatchId = roomState.currentMatchId;
   const c1 = roomState.captain1;
   const c2 = roomState.captain2;
 
   if (!roomState.tossState) {
-    roomState.tossState = createCleanTossState(matchId, c1, c2);
+    roomState.tossState = createCleanTossState(currentMatchId, c1, c2);
     roomState.firstPickCaptain = null;
     return;
   }
@@ -89,26 +94,26 @@ function validateAndSanitizeTossState() {
   const ts = roomState.tossState;
   if (!c1 || !c2) {
     if (ts.winner || ts.isFlipping || roomState.firstPickCaptain) {
-      roomState.tossState = createCleanTossState(matchId, c1, c2);
+      roomState.tossState = createCleanTossState(currentMatchId, c1, c2);
       roomState.firstPickCaptain = null;
     }
     return;
   }
 
   if (ts.winner) {
-    const isCap1 = ts.winner.id === c1.id || (ts.winner.name && c1.name && ts.winner.name.toLowerCase() === c1.name.toLowerCase());
-    const isCap2 = ts.winner.id === c2.id || (ts.winner.name && c2.name && ts.winner.name.toLowerCase() === c2.name.toLowerCase());
-    const matchesMatch = !ts.matchId || ts.matchId === matchId;
-    const matchesCap1 = !ts.captain1Id || ts.captain1Id === c1.id;
-    const matchesCap2 = !ts.captain2Id || ts.captain2Id === c2.id;
+    const isCap1Winner = ts.winner.id === c1.id || (ts.winner.name && c1.name && ts.winner.name.toLowerCase() === c1.name.toLowerCase());
+    const isCap2Winner = ts.winner.id === c2.id || (ts.winner.name && c2.name && ts.winner.name.toLowerCase() === c2.name.toLowerCase());
+    const isWinnerValid = isCap1Winner || isCap2Winner;
 
-    if (!isCap1 && !isCap2) {
-      console.warn(`⚠️ [Toss Security] Stale toss winner detected ("${ts.winner.name}") - does not match active captains ("${c1.name}" vs "${c2.name}"). Invalidating toss state.`);
-      roomState.tossState = createCleanTossState(matchId, c1, c2);
-      roomState.firstPickCaptain = null;
-    } else if (!matchesMatch || !matchesCap1 || !matchesCap2) {
-      console.warn(`⚠️ [Toss Security] Toss metadata mismatch. Invalidating stale toss.`);
-      roomState.tossState = createCleanTossState(matchId, c1, c2);
+    // Strict Ownership Validation: NO permissive checks (!ts.matchId) allowed
+    const hasStrictMetadata = Boolean(ts.matchId && ts.captain1Id && ts.captain2Id && currentMatchId);
+    const isMatchValid = hasStrictMetadata && ts.matchId === currentMatchId;
+    const isCap1Valid = hasStrictMetadata && ts.captain1Id === c1.id;
+    const isCap2Valid = hasStrictMetadata && ts.captain2Id === c2.id;
+
+    if (!isWinnerValid || !isMatchValid || !isCap1Valid || !isCap2Valid) {
+      console.warn(`⚠️ [Toss Security] Stale or invalid toss metadata detected (winner: "${ts.winner?.name}", tossMatch: "${ts.matchId}", currentMatch: "${currentMatchId}"). Invalidating toss state.`);
+      roomState.tossState = createCleanTossState(currentMatchId, c1, c2);
       roomState.firstPickCaptain = null;
     }
   }
@@ -117,15 +122,17 @@ function validateAndSanitizeTossState() {
     const fpc = roomState.firstPickCaptain;
     const isCap1 = fpc.id === c1.id || (fpc.name && c1.name && fpc.name.toLowerCase() === c1.name.toLowerCase());
     const isCap2 = fpc.id === c2.id || (fpc.name && c2.name && fpc.name.toLowerCase() === c2.name.toLowerCase());
-    if (!isCap1 && !isCap2) {
+    if (!isCap1 && !isCap2 || !roomState.tossState.winner) {
       roomState.firstPickCaptain = null;
     }
   }
 }
 
-function createInitialState(roomId = 'main') {
+function createInitialState(roomId = 'main', matchId = null) {
+  const currentMatchId = matchId || generateMatchId();
   return {
     roomId,
+    currentMatchId,
     publicUrl: '',
     players: [],
     matchTitle: 'Sunday Turf Derby 8v8',
@@ -140,7 +147,7 @@ function createInitialState(roomId = 'main') {
     roomStep: 'toss',
     firstPickCaptain: null,
     matchScore: null,
-    tossState: createCleanTossState(roomId, null, null),
+    tossState: createCleanTossState(currentMatchId, null, null),
     draftState: {
       team1: [],
       team2: [],
@@ -187,6 +194,7 @@ function loadInitialStateFromBackup() {
         };
       }
       if (!loaded.roomId) loaded.roomId = 'main';
+      if (!loaded.currentMatchId) loaded.currentMatchId = generateMatchId();
       if (!loaded.cap1Token) loaded.cap1Token = generateSecureToken();
       if (!loaded.cap2Token) loaded.cap2Token = generateSecureToken();
       if (loaded.tossState) {
@@ -213,6 +221,9 @@ if (!roomState.roomId) roomState.roomId = 'main';
 // SAFEGUARD 3: Live persistence writes to database. JSON file is NOT modified during live operation.
 function broadcastState() {
   validateAndSanitizeTossState();
+  if (roomState && roomState.currentMatchId) {
+    dbSaveActiveFixture(roomState.currentMatchId, roomState).catch(err => console.error('Error persisting active fixture:', err));
+  }
   io.emit('room_state_updated', roomState);
 }
 
@@ -529,7 +540,7 @@ io.on('connection', (socket) => {
 
     // Automatically clear toss and firstPickCaptain when captains change before draft
     if (captainsChanged && !isDraftingOrActive) {
-      roomState.tossState = createCleanTossState(roomState.roomId, roomState.captain1, roomState.captain2);
+      roomState.tossState = createCleanTossState(roomState.currentMatchId, roomState.captain1, roomState.captain2);
       roomState.firstPickCaptain = null;
       if (roomState.draftState) {
         roomState.draftState.currentTurn = 1;
@@ -596,7 +607,7 @@ io.on('connection', (socket) => {
 
     setTimeout(() => {
       roomState.tossState = {
-        matchId: roomState.roomId || 'main',
+        matchId: roomState.currentMatchId,
         captain1Id: roomState.captain1 ? roomState.captain1.id : null,
         captain2Id: roomState.captain2 ? roomState.captain2.id : null,
         isFlipping: false,
@@ -646,7 +657,7 @@ io.on('connection', (socket) => {
 
     setTimeout(() => {
       roomState.tossState = {
-        matchId: roomState.roomId || 'main',
+        matchId: roomState.currentMatchId,
         captain1Id: roomState.captain1 ? roomState.captain1.id : null,
         captain2Id: roomState.captain2 ? roomState.captain2.id : null,
         isFlipping: false,
@@ -685,7 +696,7 @@ io.on('connection', (socket) => {
       socket.emit('error_message', 'Cannot reset toss once live draft has started. Toss result is immutable.');
       return;
     }
-    roomState.tossState = createCleanTossState(roomState.roomId, roomState.captain1, roomState.captain2);
+    roomState.tossState = createCleanTossState(roomState.currentMatchId, roomState.captain1, roomState.captain2);
     roomState.firstPickCaptain = null;
     broadcastState();
   });
@@ -1068,7 +1079,8 @@ io.on('connection', (socket) => {
     if (!roomState.matchArchive) roomState.matchArchive = [];
     const archivedMatch = {
       id: 'arch_' + Date.now(),
-      matchId: roomState.roomId || ('match_' + Date.now()),
+      matchId: roomState.currentMatchId || roomState.roomId || ('match_' + Date.now()),
+      currentMatchId: roomState.currentMatchId,
       name: roomState.matchMetadata?.name || roomState.matchTitle || 'Sunday Match',
       date: roomState.matchMetadata?.date || new Date().toLocaleDateString('en-GB'),
       venue: roomState.matchMetadata?.venue || 'Football Turf',
@@ -1096,7 +1108,8 @@ io.on('connection', (socket) => {
     const archive = roomState.matchArchive || [];
     const pubUrl = roomState.publicUrl;
 
-    roomState = createInitialState('match_' + Date.now());
+    const nextMatchId = generateMatchId();
+    roomState = createInitialState('match_' + Date.now(), nextMatchId);
     roomState.playerDirectory = directory;
     roomState.matchArchive = archive;
     roomState.publicUrl = pubUrl;
@@ -1120,7 +1133,8 @@ io.on('connection', (socket) => {
     const prevUrl = roomState.publicUrl;
     const directory = roomState.playerDirectory || [];
     const archive = roomState.matchArchive || [];
-    roomState = createInitialState('main');
+    const nextMatchId = generateMatchId();
+    roomState = createInitialState('main', nextMatchId);
     roomState.publicUrl = prevUrl;
     roomState.playerDirectory = directory;
     roomState.matchArchive = archive;
@@ -1342,6 +1356,21 @@ const PORT = process.env.PORT || 3000;
 async function startServer() {
   await initDatabase();
   try {
+    // 1. Hydrate active fixture from database if available
+    const activeFixture = await dbGetActiveFixture();
+    if (activeFixture && activeFixture.currentMatchId) {
+      console.log(`✅ Restored active fixture from database: ${activeFixture.currentMatchId}`);
+      roomState = { ...roomState, ...activeFixture };
+    } else {
+      // 2. Ensure currentMatchId exists
+      if (!roomState.currentMatchId) {
+        roomState.currentMatchId = generateMatchId();
+        console.log(`✨ Generated new fixture ID for initial state: ${roomState.currentMatchId}`);
+      }
+      await dbSaveActiveFixture(roomState.currentMatchId, roomState).catch(err => console.error('Error saving active fixture:', err));
+    }
+    validateAndSanitizeTossState();
+
     const dbPlayers = await dbGetAllPlayers();
     if (dbPlayers && dbPlayers.length > 0) {
       roomState.playerDirectory = dbPlayers.map(p => ({

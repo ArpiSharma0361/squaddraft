@@ -15,6 +15,7 @@ export default function TossArena({
   team2Kit = 'black',
   firstPickCaptain,
   tossState,
+  currentMatchId,
   myRole,
   captainToken,
   adminToken,
@@ -38,8 +39,9 @@ export default function TossArena({
        rawWinner.name.toLowerCase() === captain1.name?.toLowerCase() ||
        rawWinner.name.toLowerCase() === captain2.name?.toLowerCase()
      ))) &&
-    (!tossState?.captain1Id || tossState.captain1Id === captain1.id) &&
-    (!tossState?.captain2Id || tossState.captain2Id === captain2.id)
+    (!currentMatchId || tossState?.matchId === currentMatchId) &&
+    tossState?.captain1Id === captain1.id &&
+    tossState?.captain2Id === captain2.id
   );
 
   const effectiveTossWinner = isValidTossWinner ? rawWinner : null;

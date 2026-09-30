@@ -137,6 +137,7 @@ export default function App() {
   const [team2Name, setTeam2Name] = useState('Team Black');
   const [firstPickCaptain, setFirstPickCaptain] = useState(null);
   const [matchScore, setMatchScore] = useState(null);
+  const [currentMatchId, setCurrentMatchId] = useState(null);
 
   const [roomStep, setRoomStep] = useState('toss');
   const [finalTeam1, setFinalTeam1] = useState([]);
@@ -230,6 +231,7 @@ export default function App() {
       if (state.cap1Token !== undefined) setCap1Token(state.cap1Token);
       if (state.cap2Token !== undefined) setCap2Token(state.cap2Token);
       if (state.matchScore !== undefined) setMatchScore(state.matchScore);
+      if (state.currentMatchId !== undefined) setCurrentMatchId(state.currentMatchId);
       if (state.team1Kit !== undefined) setTeam1Kit(state.team1Kit);
       if (state.team2Kit !== undefined) setTeam2Kit(state.team2Kit);
       if (state.team1Name !== undefined) setTeam1Name(state.team1Name);
@@ -422,6 +424,7 @@ export default function App() {
               <>
                 {roomStep === 'toss' && (
                   <TossArena
+                    currentMatchId={currentMatchId}
                     captain1={captain1}
                     captain2={captain2}
                     team1Name={team1Name}

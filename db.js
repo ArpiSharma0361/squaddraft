@@ -227,6 +227,16 @@ async function createTables() {
     )
   `);
 
+  // 11. Active Fixture Persistence (Survives server restarts and container reboots)
+  await query(`
+    CREATE TABLE IF NOT EXISTS active_fixture (
+      id TEXT PRIMARY KEY,
+      match_id TEXT NOT NULL,
+      state_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   // 10. Admin Sessions
   await query(`
     CREATE TABLE IF NOT EXISTS admin_sessions (
@@ -525,4 +535,41 @@ export async function dbGetPublicHistory() {
       finalTeam2: (parsedPayload.finalTeam2 || []).map(p => ({ name: p.name, position: p.position }))
     };
   });
+}
+
+export function generateMatchId() {
+  return `match_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+}
+
+export async function dbSaveActiveFixture(matchId, state) {
+  if (!matchId || !state) return;
+  const json = JSON.stringify(state);
+  const now = new Date().toISOString();
+  const existing = await query('SELECT id FROM active_fixture WHERE id = $1', ['current']);
+  if (existing.length > 0) {
+    await query(
+      'UPDATE active_fixture SET match_id = $1, state_json = $2, updated_at = $3 WHERE id = $4',
+      [matchId, json, now, 'current']
+    );
+  } else {
+    await query(
+      'INSERT INTO active_fixture (id, match_id, state_json, updated_at) VALUES ($1, $2, $3, $4)',
+      ['current', matchId, json, now]
+    );
+  }
+}
+
+export async function dbGetActiveFixture() {
+  const rows = await query('SELECT match_id, state_json, updated_at FROM active_fixture WHERE id = $1', ['current']);
+  if (rows.length === 0) return null;
+  try {
+    return JSON.parse(rows[0].state_json);
+  } catch (err) {
+    console.error('Error parsing active_fixture state_json:', err);
+    return null;
+  }
+}
+
+export async function dbClearActiveFixture() {
+  await query('DELETE FROM active_fixture WHERE id = $1', ['current']);
 }
