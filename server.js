@@ -13,12 +13,15 @@ import {
   dbGetAllPlayers,
   dbUpsertPlayer,
   dbDeletePlayer,
+  dbDeactivatePlayer,
+  dbActivatePlayer,
   dbSetCaptainToken,
   dbGetCaptainByToken,
   dbGetCaptains,
   dbRevokeCaptainTokens,
   dbCreateAdminSession,
   dbValidateAdminSession,
+  dbDeleteAdminSession,
   dbSaveMatchScore,
   dbGetMatchScore,
   dbArchiveMatch,
@@ -642,20 +645,22 @@ io.on('connection', (socket) => {
   });
 
   // --- Permanent Player Directory Events ---
-  socket.on('directory_add_player', async ({ player, adminToken }) => {
+  socket.on('directory_add_player', async (data) => {
+    const player = data?.player || data;
+    const adminToken = data?.adminToken;
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
       socket.emit('error_message', 'Admin authorization required.');
       return;
     }
     if (!roomState.playerDirectory) roomState.playerDirectory = [];
-    if (!roomState.playerDirectory.some(p => p.name.toLowerCase() === player.name.toLowerCase())) {
+    if (player?.name && !roomState.playerDirectory.some(p => p.name.toLowerCase() === player.name.toLowerCase())) {
       const newP = {
         id: player.id || ('dir_' + Date.now()),
         name: player.name.trim(),
         position: player.position || 'MID',
         secondaryPosition: player.secondaryPosition || '',
-        active: true
+        active: player.active !== undefined ? !!player.active : true
       };
       roomState.playerDirectory.push(newP);
       await dbUpsertPlayer(newP).catch(() => {});
@@ -663,53 +668,142 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('directory_bulk_add', async ({ playersList, adminToken }) => {
+  socket.on('directory_bulk_add', async (data) => {
+    const playersList = Array.isArray(data) ? data : data?.playersList;
+    const adminToken = Array.isArray(data) ? null : data?.adminToken;
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
       socket.emit('error_message', 'Admin authorization required.');
       return;
     }
     if (!roomState.playerDirectory) roomState.playerDirectory = [];
-    for (const p of playersList) {
-      if (p.name && !roomState.playerDirectory.some(x => x.name.toLowerCase() === p.name.trim().toLowerCase())) {
-        const newP = {
-          id: 'dir_' + Date.now() + Math.random().toString(36).substring(2, 5),
-          name: p.name.trim(),
-          position: p.position || 'MID',
-          secondaryPosition: p.secondaryPosition || '',
-          active: true
-        };
-        roomState.playerDirectory.push(newP);
-        await dbUpsertPlayer(newP).catch(() => {});
+    if (Array.isArray(playersList)) {
+      for (const p of playersList) {
+        if (p.name && !roomState.playerDirectory.some(x => x.name.toLowerCase() === p.name.trim().toLowerCase())) {
+          const newP = {
+            id: 'dir_' + Date.now() + Math.random().toString(36).substring(2, 5),
+            name: p.name.trim(),
+            position: p.position || 'MID',
+            secondaryPosition: p.secondaryPosition || '',
+            active: true
+          };
+          roomState.playerDirectory.push(newP);
+          await dbUpsertPlayer(newP).catch(() => {});
+        }
       }
+      broadcastState();
     }
-    broadcastState();
   });
 
-  socket.on('directory_remove_player', async ({ playerId, adminToken }) => {
+  socket.on('directory_edit_player', async ({ playerId, id, name, position, secondaryPosition, active, adminToken } = {}) => {
+    const isAuth = await dbValidateAdminSession(adminToken);
+    if (!isAuth) {
+      socket.emit('error_message', 'Admin authorization required to edit directory player.');
+      return;
+    }
+    const targetId = playerId || id;
+    if (!roomState.playerDirectory) roomState.playerDirectory = [];
+    const idx = roomState.playerDirectory.findIndex(p => p.id === targetId);
+    if (idx !== -1) {
+      const updated = {
+        ...roomState.playerDirectory[idx],
+        name: name ? name.trim() : roomState.playerDirectory[idx].name,
+        position: position || roomState.playerDirectory[idx].position,
+        secondaryPosition: secondaryPosition !== undefined ? secondaryPosition : (roomState.playerDirectory[idx].secondaryPosition || ''),
+        active: active !== undefined ? !!active : (roomState.playerDirectory[idx].active !== false)
+      };
+      roomState.playerDirectory[idx] = updated;
+      await dbUpsertPlayer(updated).catch(() => {});
+
+      // Sync with matchday squad if player is currently in it
+      if (roomState.players && roomState.players.some(p => p.id === targetId)) {
+        roomState.players = roomState.players.map(p =>
+          p.id === targetId ? { ...p, name: updated.name, position: updated.position, secondaryPosition: updated.secondaryPosition } : p
+        );
+        if (roomState.captain1 && roomState.captain1.id === targetId) {
+          roomState.captain1 = { ...roomState.captain1, name: updated.name, position: updated.position };
+        }
+        if (roomState.captain2 && roomState.captain2.id === targetId) {
+          roomState.captain2 = { ...roomState.captain2, name: updated.name, position: updated.position };
+        }
+      }
+      broadcastState();
+    }
+  });
+
+  socket.on('directory_deactivate_player', async ({ playerId, id, adminToken } = {}) => {
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
       socket.emit('error_message', 'Admin authorization required.');
       return;
     }
+    const targetId = playerId || id;
+    // Safeguard: Check if player is participating in an active match or live draft
+    const isDraftingOrActive = roomState.roomStep !== 'setup' && roomState.roomStep !== 'complete';
+    const isInCurrentSquad = roomState.players && roomState.players.some(p => p.id === targetId);
+    if (isInCurrentSquad && isDraftingOrActive) {
+      socket.emit('error_message', 'Cannot deactivate player while participating in an active match or live draft.');
+      return;
+    }
+
+    if (!roomState.playerDirectory) roomState.playerDirectory = [];
+    const idx = roomState.playerDirectory.findIndex(p => p.id === targetId);
+    if (idx !== -1) {
+      roomState.playerDirectory[idx].active = false;
+      await dbDeactivatePlayer(targetId).catch(() => {});
+      // Also remove from matchday squad if currently in setup
+      if (isInCurrentSquad && roomState.roomStep === 'setup') {
+        roomState.players = roomState.players.filter(p => p.id !== targetId);
+        if (roomState.captain1 && roomState.captain1.id === targetId) roomState.captain1 = null;
+        if (roomState.captain2 && roomState.captain2.id === targetId) roomState.captain2 = null;
+      }
+      broadcastState();
+    }
+  });
+
+  socket.on('directory_remove_player', async (data) => {
+    const playerId = typeof data === 'string' ? data : (data?.playerId || data?.id);
+    const adminToken = typeof data === 'string' ? null : data?.adminToken;
+    const isAuth = await dbValidateAdminSession(adminToken);
+    if (!isAuth) {
+      socket.emit('error_message', 'Admin authorization required.');
+      return;
+    }
+    // Safeguard: Check if player is participating in active match/draft
+    const isDraftingOrActive = roomState.roomStep !== 'setup' && roomState.roomStep !== 'complete';
+    const isInCurrentSquad = roomState.players && roomState.players.some(p => p.id === playerId);
+    if (isInCurrentSquad && isDraftingOrActive) {
+      socket.emit('error_message', 'Cannot remove player while match or draft is in progress.');
+      return;
+    }
+
     if (!roomState.playerDirectory) return;
     roomState.playerDirectory = roomState.playerDirectory.filter(p => p.id !== playerId);
     await dbDeletePlayer(playerId).catch(() => {});
+    if (isInCurrentSquad && roomState.roomStep === 'setup') {
+      roomState.players = roomState.players.filter(p => p.id !== playerId);
+      if (roomState.captain1 && roomState.captain1.id === playerId) roomState.captain1 = null;
+      if (roomState.captain2 && roomState.captain2.id === playerId) roomState.captain2 = null;
+    }
     broadcastState();
   });
 
-  socket.on('directory_select_for_match', async ({ selectedPlayerIds, adminToken }) => {
+  socket.on('directory_select_for_match', async (data) => {
+    const selectedPlayerIds = Array.isArray(data) ? data : data?.selectedPlayerIds;
+    const adminToken = Array.isArray(data) ? null : data?.adminToken;
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
       socket.emit('error_message', 'Admin authorization required.');
       return;
     }
-    if (!roomState.playerDirectory) return;
-    const selected = roomState.playerDirectory.filter(p => selectedPlayerIds.includes(p.id));
+    if (!roomState.playerDirectory || !selectedPlayerIds) return;
+    // Only select active players from directory
+    const selected = roomState.playerDirectory.filter(p => selectedPlayerIds.includes(p.id) && p.active !== false);
     roomState.players = selected.map(p => ({
       id: p.id,
       name: p.name,
-      position: p.position
+      position: p.position,
+      secondaryPosition: p.secondaryPosition || ''
     }));
     roomState.captain1 = null;
     roomState.captain2 = null;
@@ -813,8 +907,12 @@ io.on('connection', (socket) => {
       return;
     }
     const prevUrl = roomState.publicUrl;
+    const directory = roomState.playerDirectory || [];
+    const archive = roomState.matchArchive || [];
     roomState = createInitialState('main');
     roomState.publicUrl = prevUrl;
+    roomState.playerDirectory = directory;
+    roomState.matchArchive = archive;
     await dbRevokeCaptainTokens(roomState.roomId).catch(() => {});
     broadcastState();
   });
@@ -856,6 +954,16 @@ app.get('/api/auth/verify', async (req, res) => {
   const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.query.token;
   const isValid = await dbValidateAdminSession(token);
   return res.json({ valid: isValid });
+});
+
+// Admin Logout Endpoint
+app.post('/api/auth/logout', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : (req.body?.token || req.query.token);
+  if (token) {
+    await dbDeleteAdminSession(token);
+  }
+  return res.json({ success: true });
 });
 
 // Draft Pick with Token Validation
@@ -1022,6 +1130,20 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   await initDatabase();
+  try {
+    const dbPlayers = await dbGetAllPlayers();
+    if (dbPlayers && dbPlayers.length > 0) {
+      roomState.playerDirectory = dbPlayers.map(p => ({
+        id: p.id,
+        name: p.name,
+        position: p.position,
+        secondaryPosition: p.secondary_position || '',
+        active: p.active !== 0
+      }));
+    }
+  } catch (err) {
+    console.error('Warning: could not initialize player directory from database:', err.message);
+  }
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log('⚽ SquadDraft PRO Production Real-Time Server running on port ' + PORT);
     startTunnel();

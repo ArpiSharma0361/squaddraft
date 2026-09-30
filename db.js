@@ -320,17 +320,26 @@ export async function dbGetAllPlayers() {
 
 export async function dbUpsertPlayer(player) {
   const existing = await query('SELECT id FROM players WHERE id = $1 OR name = $2', [player.id, player.name.trim()]);
+  const activeVal = player.active !== undefined ? (player.active ? 1 : 0) : 1;
   if (existing.length > 0) {
     await query(
-      'UPDATE players SET name = $1, position = $2, secondary_position = $3, rating = $4 WHERE id = $5',
-      [player.name.trim(), player.position, player.secondaryPosition || '', player.rating || 4, existing[0].id]
+      'UPDATE players SET name = $1, position = $2, secondary_position = $3, rating = $4, active = $5 WHERE id = $6',
+      [player.name.trim(), player.position, player.secondaryPosition || '', player.rating || 4, activeVal, existing[0].id]
     );
   } else {
     await query(
       'INSERT INTO players (id, name, position, secondary_position, active, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [player.id, player.name.trim(), player.position, player.secondaryPosition || '', 1, player.rating || 4, new Date().toISOString()]
+      [player.id, player.name.trim(), player.position, player.secondaryPosition || '', activeVal, player.rating || 4, new Date().toISOString()]
     );
   }
+}
+
+export async function dbDeactivatePlayer(id) {
+  await query('UPDATE players SET active = 0 WHERE id = $1', [id]);
+}
+
+export async function dbActivatePlayer(id) {
+  await query('UPDATE players SET active = 1 WHERE id = $1', [id]);
 }
 
 export async function dbDeletePlayer(id) {
@@ -396,6 +405,11 @@ export async function dbValidateAdminSession(token) {
     return false;
   }
   return true;
+}
+
+export async function dbDeleteAdminSession(token) {
+  if (!token) return;
+  await query('DELETE FROM admin_sessions WHERE token = $1', [token]);
 }
 
 // --- Match Results (Final Score) ---

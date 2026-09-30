@@ -44,6 +44,28 @@ export default function App() {
     } catch (e) {}
   };
 
+  // Authoritative Session Validation against Backend on Mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem('squaddraft_admin_token');
+    if (storedToken) {
+      fetch(`/api/auth/verify?token=${encodeURIComponent(storedToken)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data || !data.valid) {
+            setIsAdminLoggedIn(false);
+          } else {
+            setIsAdminLoggedInState(true);
+            setAdminTokenState(storedToken);
+          }
+        })
+        .catch(() => {
+          setIsAdminLoggedIn(false);
+        });
+    } else {
+      setIsAdminLoggedIn(false);
+    }
+  }, []);
+
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [isConnected, setIsConnected] = useState(socket.connected);
 
@@ -91,7 +113,7 @@ export default function App() {
   const [roomRole, setRoomRole] = useState('spectator');
   const effectiveRole = (roomRole === 'cap1' || roomRole === 'cap2')
     ? roomRole
-    : (roomRole === 'spectator' ? 'spectator' : (isAdminLoggedIn || roomRole === 'admin' ? 'admin' : 'spectator'));
+    : (roomRole === 'spectator' ? 'spectator' : ((isAdminLoggedIn && adminToken) ? 'admin' : 'spectator'));
   const [playerDirectory, setPlayerDirectory] = useState([]);
   const [matchArchive, setMatchArchive] = useState([]);
   const [matchMetadata, setMatchMetadata] = useState({
@@ -146,10 +168,10 @@ export default function App() {
 
       if (v === 'history') {
         setActiveView('history');
-      } else if (r === 'cap1' || r === 'cap2' || r === 'spectator' || r === 'admin') {
+      } else if (r === 'cap1' || r === 'cap2' || r === 'spectator') {
         setRoomRole(r);
         setActiveView('room');
-      } else if (v === 'admin') {
+      } else if (r === 'admin' || v === 'admin') {
         setActiveView('admin');
       } else if (v === 'register') {
         setActiveView('register');

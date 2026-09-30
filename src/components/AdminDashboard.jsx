@@ -19,7 +19,8 @@ import {
   RotateCcw,
   History,
   FolderKanban,
-  Award
+  Award,
+  LogOut
 } from 'lucide-react';
 import { POSITIONS } from '../types';
 import { parseWhatsAppList } from '../utils/whatsappParser';
@@ -121,6 +122,22 @@ export default function AdminDashboard({
       setPinError(true);
       sfx.playBuzzer();
     }
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      if (adminToken) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: adminToken })
+        });
+      }
+    } catch (e) {
+      // Ignore network errors during logout
+    }
+    setIsAdminLoggedIn(false);
+    sfx.playPick();
   };
 
   const handleSelectTeam1Kit = (color) => {
@@ -357,6 +374,15 @@ export default function AdminDashboard({
             <Trash2 className="w-3.5 h-3.5" />
             <span>Clear Roster</span>
           </button>
+
+          <button
+            onClick={handleAdminLogout}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-black transition-all cursor-pointer shadow-sm"
+            title="Log out of Admin Dashboard"
+          >
+            <LogOut className="w-3.5 h-3.5 text-slate-300" />
+            <span>Log Out</span>
+          </button>
         </div>
       </div>
 
@@ -401,7 +427,12 @@ export default function AdminDashboard({
 
       {/* TAB 2: Player Directory Panel */}
       {adminTab === 'directory' && (
-        <PlayerDirectoryPanel playerDirectory={playerDirectory} currentMatchPlayers={players} />
+        <PlayerDirectoryPanel
+          playerDirectory={playerDirectory}
+          currentMatchPlayers={players}
+          adminToken={adminToken}
+          roomStep={roomStep}
+        />
       )}
 
       {/* TAB 3: Match Archive Panel */}
@@ -423,10 +454,13 @@ export default function AdminDashboard({
             </div>
 
             <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Total Players</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Current Match Squad</span>
               <div className="text-xl font-black text-slate-900 mt-0.5">
-                👥 {players.length} Registered
+                👥 {players.length} Selected
               </div>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                {playerDirectory.filter(p => p.active !== false).length} Active Club Members
+              </p>
             </div>
 
             <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
