@@ -236,7 +236,8 @@ function executePlayerPick(player, verifiedRole) {
         pickedPlayer: availablePlayer,
         autoGk: autoAssignedGk,
         pickedBy: roomState.captain1 ? roomState.captain1.name : 'Captain 1',
-        receivedBy: roomState.captain2 ? roomState.captain2.name : 'Captain 2'
+        receivedBy: roomState.captain2 ? roomState.captain2.name : 'Captain 2',
+        retainingCaptain: roomState.captain1 ? roomState.captain1.name : 'Captain 1'
       };
     }
   } else {
@@ -248,7 +249,8 @@ function executePlayerPick(player, verifiedRole) {
         pickedPlayer: availablePlayer,
         autoGk: autoAssignedGk,
         pickedBy: roomState.captain2 ? roomState.captain2.name : 'Captain 2',
-        receivedBy: roomState.captain1 ? roomState.captain1.name : 'Captain 1'
+        receivedBy: roomState.captain1 ? roomState.captain1.name : 'Captain 1',
+        retainingCaptain: roomState.captain2 ? roomState.captain2.name : 'Captain 2'
       };
     }
   }
@@ -278,7 +280,13 @@ function executePlayerPick(player, verifiedRole) {
   }
 
   broadcastState();
-  return { success: true, player: availablePlayer, currentTurn: ds.currentTurn, turnEndsAt: ds.turnEndsAt };
+  return { 
+    success: true, 
+    player: availablePlayer, 
+    currentTurn: ds.currentTurn, 
+    turnEndsAt: ds.turnEndsAt,
+    gkAlert: ds.gkAlert
+  };
 }
 
 // --- WebSocket Event Handlers ---
@@ -621,6 +629,9 @@ io.on('connection', (socket) => {
         pickedByTurn: verifiedRole === 'cap1' ? 1 : 2,
         currentTurn: roomState.draftState ? roomState.draftState.currentTurn : 1
       });
+      if (result.gkAlert) {
+        io.emit('gk_balance_event', result.gkAlert);
+      }
     }
   });
 
@@ -642,6 +653,9 @@ io.on('connection', (socket) => {
         pickedByTurn: verifiedRole === 'cap1' ? 1 : 2,
         currentTurn: roomState.draftState ? roomState.draftState.currentTurn : 1
       });
+      if (result.gkAlert) {
+        io.emit('gk_balance_event', result.gkAlert);
+      }
     }
   });
 
@@ -666,6 +680,10 @@ io.on('connection', (socket) => {
     ds.turnStartedAt = now;
     ds.turnEndsAt = now + 90000;
     ds.isPaused = false;
+    if (roomState.roomStep === 'pitch') {
+      roomState.roomStep = 'draft';
+    }
+    io.emit('pick_undone', { pickNumber: ds.pickNumber, currentTurn: ds.currentTurn });
     broadcastState();
   });
 

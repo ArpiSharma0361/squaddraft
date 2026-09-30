@@ -41,12 +41,43 @@ export default function SpectatorBroadcast({
   const totalRosterCount = Array.isArray(allPlayers) && allPlayers.length > 0
     ? allPlayers.length
     : (availablePlayers.length + team1.length + team2.length);
-  const totalDraftablePicks = Math.max(0, totalRosterCount - 2);
+  const totalDraftablePlayers = Math.max(0, totalRosterCount - 2);
   const targetTeamCapacity = Math.ceil(totalRosterCount / 2);
-  const displayPickNumber = totalDraftablePicks > 0 ? Math.min(pickNumber, totalDraftablePicks) : 0;
+
+  // When GK auto-balance occurs, 2 goalkeepers are assigned in 1 turn, reducing total manual turns by 1
+  const hasGkAutoBalanced = (team1.some(p => p.position === 'GK') && team2.some(p => p.position === 'GK')) || Boolean(draftState?.gkAlert);
+  const totalManualPicks = hasGkAutoBalanced ? Math.max(1, totalDraftablePlayers - 1) : totalDraftablePlayers;
+  const displayPickNumber = totalManualPicks > 0 ? Math.min(pickNumber, totalManualPicks) : 0;
 
   const [posFilter, setPosFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleGkAlert, setVisibleGkAlert] = useState(null);
+
+  useEffect(() => {
+    if (draftState?.gkAlert) {
+      setVisibleGkAlert(draftState.gkAlert);
+      const timer = setTimeout(() => setVisibleGkAlert(null), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setVisibleGkAlert(null);
+    }
+  }, [draftState?.gkAlert]);
+
+  useEffect(() => {
+    function onGkBalance(data) {
+      setVisibleGkAlert(data);
+      setTimeout(() => setVisibleGkAlert(null), 5000);
+    }
+    function onPickUndone() {
+      setVisibleGkAlert(null);
+    }
+    socket.on('gk_balance_event', onGkBalance);
+    socket.on('pick_undone', onPickUndone);
+    return () => {
+      socket.off('gk_balance_event', onGkBalance);
+      socket.off('pick_undone', onPickUndone);
+    };
+  }, []);
 
   // Server-Synchronized Countdown Timer
   const calculateServerTimeLeft = () => {
@@ -122,6 +153,35 @@ export default function SpectatorBroadcast({
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      {/* Goalkeeper Auto-Balance Notification Banner (Spectator View) */}
+      {visibleGkAlert && (
+        <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 border-2 border-amber-400/60 p-4 rounded-2xl flex items-start justify-between shadow-2xl animate-fadeIn text-amber-200">
+          <div className="flex items-start gap-3 w-full">
+            <span className="text-2xl p-2 rounded-xl bg-amber-500/20 border border-amber-400/40 shrink-0">🧤</span>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  GOALKEEPER BALANCE
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-black uppercase">
+                  Fair Play Rule
+                </span>
+              </div>
+              <p className="text-xs font-bold text-white">
+                <span className="text-cyan-300">{visibleGkAlert.pickedPlayer?.name}</span> drafted by <span className="text-cyan-400 font-black">{visibleGkAlert.pickedBy}</span>.
+              </p>
+              <p className="text-xs text-amber-200/90">
+                <span className="text-purple-300 font-bold">{visibleGkAlert.autoGk?.name}</span> has been automatically assigned to <span className="text-purple-400 font-bold">{visibleGkAlert.receivedBy}</span> to ensure one goalkeeper per team.
+              </p>
+              <div className="pt-1 text-[11px] font-black text-amber-400 flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>{visibleGkAlert.retainingCaptain || visibleGkAlert.pickedBy} retains the next pick because both teams received one player.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* TOP BROADCAST BAR (Panel 4 Design) */}
       <div className="bg-slate-900 border border-slate-800 p-3 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl text-white">
         <div className="flex items-center gap-3">
@@ -254,7 +314,7 @@ export default function SpectatorBroadcast({
 
           {/* Round & Pick */}
           <div className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-            ROUND {Math.ceil(Math.max(1, pickNumber) / 2)} | PICK {displayPickNumber} OF {totalDraftablePicks}
+            ROUND {Math.ceil(Math.max(1, pickNumber) / 2)} | PICK {displayPickNumber} OF {totalManualPicks}
           </div>
 
           {/* Latest Pick */}

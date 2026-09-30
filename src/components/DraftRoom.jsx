@@ -55,6 +55,33 @@ export default function DraftRoom({
   const [lastConfirmedPick, setLastConfirmedPick] = useState(null);
   const [recentlyPickedAlert, setRecentlyPickedAlert] = useState(null);
   const [pickErrorMessage, setPickErrorMessage] = useState(null);
+  const [visibleGkAlert, setVisibleGkAlert] = useState(null);
+
+  useEffect(() => {
+    if (draftState?.gkAlert) {
+      setVisibleGkAlert(draftState.gkAlert);
+      const timer = setTimeout(() => setVisibleGkAlert(null), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setVisibleGkAlert(null);
+    }
+  }, [draftState?.gkAlert]);
+
+  useEffect(() => {
+    function onGkBalance(data) {
+      setVisibleGkAlert(data);
+      setTimeout(() => setVisibleGkAlert(null), 5000);
+    }
+    function onPickUndone() {
+      setVisibleGkAlert(null);
+    }
+    socket.on('gk_balance_event', onGkBalance);
+    socket.on('pick_undone', onPickUndone);
+    return () => {
+      socket.off('gk_balance_event', onGkBalance);
+      socket.off('pick_undone', onPickUndone);
+    };
+  }, []);
 
   // Server-Authoritative Timer
   const [timeLeft, setTimeLeft] = useState(90);
@@ -160,9 +187,13 @@ export default function DraftRoom({
   const totalRosterCount = Array.isArray(allPlayers) && allPlayers.length > 0
     ? allPlayers.length
     : (availablePlayers.length + team1.length + team2.length);
-  const totalDraftablePicks = Math.max(0, totalRosterCount - 2);
+  const totalDraftablePlayers = Math.max(0, totalRosterCount - 2);
   const targetTeamCapacity = Math.ceil(totalRosterCount / 2);
-  const displayPickNumber = totalDraftablePicks > 0 ? Math.min(pickNumber, totalDraftablePicks) : 0;
+
+  // When GK auto-balance occurs, 2 goalkeepers are assigned in 1 turn, reducing total manual turns by 1
+  const hasGkAutoBalanced = (team1.some(p => p.position === 'GK') && team2.some(p => p.position === 'GK')) || Boolean(draftState?.gkAlert);
+  const totalManualPicks = hasGkAutoBalanced ? Math.max(1, totalDraftablePlayers - 1) : totalDraftablePlayers;
+  const displayPickNumber = totalManualPicks > 0 ? Math.min(pickNumber, totalManualPicks) : 0;
 
   const isMyTurn = !isAdmin && !isSpectator && (
     (currentTurn === 1 && isCap1Viewer) ||
@@ -300,15 +331,30 @@ export default function DraftRoom({
       )}
 
       {/* GK Balancing Notification Alert */}
-      {gkAlert && (
-        <div className="bg-amber-500/15 border border-amber-400/40 p-3.5 rounded-2xl flex items-center justify-between text-amber-300 text-xs shadow-lg animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🧤</span>
-            <div>
-              <span className="font-black uppercase tracking-wider">Goalkeeper Auto-Balanced!</span>
-              <span className="text-amber-200 ml-1.5">
-                {gkAlert.pickedBy} drafted {gkAlert.pickedPlayer?.name} (GK). {gkAlert.receivedBy} automatically received {gkAlert.autoGk?.name} (GK) for balance!
-              </span>
+      {visibleGkAlert && (
+        <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 border-2 border-amber-400/60 p-4 rounded-2xl flex items-start justify-between shadow-2xl animate-fadeIn text-amber-200">
+          <div className="flex items-start gap-3 w-full">
+            <span className="text-2xl p-2 rounded-xl bg-amber-500/20 border border-amber-400/40 shrink-0">🧤</span>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  GOALKEEPER BALANCE
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-black uppercase">
+                  Fair Play Rule
+                </span>
+              </div>
+              <p className="text-xs font-bold text-white">
+                <span className="text-cyan-300">{visibleGkAlert.pickedPlayer?.name}</span> drafted by <span className="text-cyan-400 font-black">{visibleGkAlert.pickedBy}</span>.
+              </p>
+              <p className="text-xs text-amber-200/90">
+                <span className="text-purple-300 font-bold">{visibleGkAlert.autoGk?.name}</span> has been automatically assigned to <span className="text-purple-400 font-bold">{visibleGkAlert.receivedBy}</span> to ensure one goalkeeper per team.
+              </p>
+              <div className="pt-1 text-[11px] font-black text-amber-400 flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>{visibleGkAlert.retainingCaptain || visibleGkAlert.pickedBy} retains the next pick because both teams received one player.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -348,7 +394,7 @@ export default function DraftRoom({
           <div className="flex items-center gap-3">
             <div className="text-center">
               <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase block">
-                ROUND {Math.ceil(Math.max(1, pickNumber) / 2)} | PICK {displayPickNumber} OF {totalDraftablePicks}
+                ROUND {Math.ceil(Math.max(1, pickNumber) / 2)} | PICK {displayPickNumber} OF {totalManualPicks}
               </span>
               <span className={`text-sm sm:text-base font-black tracking-wider uppercase ${
                 currentTurn === 1 ? 'text-cyan-400' : 'text-purple-400'
