@@ -227,6 +227,12 @@ export default function AdminDashboard({
       return;
     }
 
+    if (roomStep !== 'pitch' && roomStep !== 'complete' && roomStep !== 'awaiting_result') {
+      setScoreError('Cannot record final score until live draft is completed and match is awaiting result.');
+      sfx.playBuzzer();
+      return;
+    }
+
     setScoreError('');
     setScoreSaving(true);
 
@@ -726,7 +732,7 @@ export default function AdminDashboard({
             </ArenaErrorBoundary>
           </div>
 
-          {/* TASK 4: Final Match Score Section */}
+          {/* TASK 4: Final Match Score Section (Lifecycle Guarded: Unlocks only after live draft is completed) */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-3xl p-6 shadow-lg border border-slate-800 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center space-x-2.5">
@@ -735,78 +741,99 @@ export default function AdminDashboard({
                   Official Match Final Result (Admin Only)
                 </h3>
               </div>
-              {matchScore && (
+              {matchScore ? (
                 <span className="text-[11px] text-slate-400 font-semibold">
                   Last updated: {new Date(matchScore.updatedAt).toLocaleTimeString()}
+                </span>
+              ) : (
+                <span className="text-[10px] bg-slate-800 text-slate-400 font-bold px-2 py-0.5 rounded border border-slate-700 uppercase">
+                  {roomStep === 'setup' ? 'Setup & Registration' : roomStep === 'toss' ? 'Coin Toss' : roomStep === 'draft' ? 'Live Draft' : 'Awaiting Result'}
                 </span>
               )}
             </div>
 
-            <form onSubmit={handleSaveScore} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Team 1 Score */}
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700">
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    {team1Name} ({captain1 ? captain1.name : 'Cap 1'}) Score
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={t1Score}
-                    onChange={(e) => setT1Score(e.target.value)}
-                    className="w-full text-center text-3xl font-black p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-emerald-500"
-                  />
+            {/* Issue 4 Lifecycle Gate: Hide/lock score entry during setup, toss, and draft */}
+            {roomStep !== 'pitch' && roomStep !== 'complete' && roomStep !== 'awaiting_result' ? (
+              <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-400/30 flex items-center justify-center text-amber-400 text-lg shrink-0">
+                  🔒
                 </div>
-
-                {/* Team 2 Score */}
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700">
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    {team2Name} ({captain2 ? captain2.name : 'Cap 2'}) Score
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={t2Score}
-                    onChange={(e) => setT2Score(e.target.value)}
-                    className="w-full text-center text-3xl font-black p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-orange-500"
-                  />
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-black text-slate-200">
+                    Final score entry is locked during pre-match stages
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Current stage: <strong className="text-amber-300 uppercase">{roomStep === 'setup' ? 'Player Setup & Registration' : roomStep === 'toss' ? 'Coin Toss' : roomStep === 'draft' ? 'Live Draft (Round in Progress)' : roomStep}</strong>. The final score entry panel will unlock automatically once the live draft is completed and teams take the pitch.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <form onSubmit={handleSaveScore} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Team 1 Score */}
+                  <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700">
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {team1Name} ({captain1 ? captain1.name : 'Cap 1'}) Score
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={t1Score}
+                      onChange={(e) => setT1Score(e.target.value)}
+                      className="w-full text-center text-3xl font-black p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
 
-              {scoreError && (
-                <p className="text-xs font-bold text-rose-400">{scoreError}</p>
-              )}
-
-              {scoreSavedSuccess && (
-                <div className="p-3 bg-emerald-500/20 border border-emerald-500 text-emerald-300 rounded-xl text-xs font-bold text-center">
-                  ✅ Final score saved and synchronized to database and public history!
+                  {/* Team 2 Score */}
+                  <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700">
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {team2Name} ({captain2 ? captain2.name : 'Cap 2'}) Score
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={t2Score}
+                      onChange={(e) => setT2Score(e.target.value)}
+                      className="w-full text-center text-3xl font-black p-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <div className="flex items-center justify-between pt-1">
-                <div className="text-xs font-bold text-slate-300">
-                  Calculated Outcome:{' '}
-                  <span className="text-amber-400 font-extrabold">
-                    {parseInt(t1Score, 10) > parseInt(t2Score, 10)
-                      ? `${team1Name} Wins`
-                      : parseInt(t2Score, 10) > parseInt(t1Score, 10)
-                      ? `${team2Name} Wins`
-                      : 'Draw / Tied'}
-                  </span>
+                {scoreError && (
+                  <p className="text-xs font-bold text-rose-400">{scoreError}</p>
+                )}
+
+                {scoreSavedSuccess && (
+                  <div className="p-3 bg-emerald-500/20 border border-emerald-500 text-emerald-300 rounded-xl text-xs font-bold text-center">
+                    ✅ Final score saved and synchronized to database and public history!
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-xs font-bold text-slate-300">
+                    Calculated Outcome:{' '}
+                    <span className="text-amber-400 font-extrabold">
+                      {parseInt(t1Score, 10) > parseInt(t2Score, 10)
+                        ? `${team1Name} Wins`
+                        : parseInt(t2Score, 10) > parseInt(t1Score, 10)
+                        ? `${team2Name} Wins`
+                        : 'Draw / Tied'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={scoreSaving}
+                    className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-black text-xs shadow-md transition-all transform active:scale-95 cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>{scoreSaving ? 'Saving...' : 'SAVE FINAL RESULT'}</span>
+                  </button>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={scoreSaving}
-                  className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-black text-xs shadow-md transition-all transform active:scale-95 cursor-pointer flex items-center space-x-1.5"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>{scoreSaving ? 'Saving...' : 'SAVE FINAL RESULT'}</span>
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
 
           {/* Launch Room Button Card */}
@@ -830,6 +857,44 @@ export default function AdminDashboard({
             >
               <span>🏟️ Launch Live Draft Room</span>
               <ArrowRight className="w-4 h-4 stroke-[3]" />
+            </button>
+          </div>
+
+          {/* Issue 6: Admin Match State Controls & Reset Match */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm text-white">
+            <div className="text-xs space-y-0.5">
+              <div className="font-black text-slate-300 flex items-center space-x-1.5">
+                <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                <span>Match State Reset (Admin Only)</span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium">
+                Reset current unarchived matchday state. Permanent Directory and past Match History archives are permanently preserved.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const confirmed = window.confirm(
+                  "⚠️ WARNING: RESET CURRENT MATCH STATE?\n\n" +
+                  "This will reset the current matchday draft, toss, and scores back to initial setup.\n\n" +
+                  "✅ WHAT WILL BE PRESERVED:\n" +
+                  "- All players in Permanent Player Directory\n" +
+                  "- All past archived match history and scores\n\n" +
+                  "❌ WHAT WILL BE RESET:\n" +
+                  "- Current weekly match teams and toss result\n" +
+                  "- Current match score entry\n\n" +
+                  "Do you want to proceed with resetting the current match?"
+                );
+                if (confirmed) {
+                  socket.emit('reset_match', { adminToken });
+                  sfx.playBuzzer();
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black transition-all cursor-pointer shadow-sm shrink-0 flex items-center space-x-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span>Reset Current Match</span>
             </button>
           </div>
         </div>

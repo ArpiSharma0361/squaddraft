@@ -11,8 +11,62 @@ import MatchHistoryPublic from './components/MatchHistoryPublic';
 import { socket } from './utils/socket';
 import { sfx } from './utils/soundEffects';
 
+// Helper for synchronous route and role resolution before initial render
+function getInitialRoute() {
+  try {
+    const path = (typeof window !== 'undefined' ? window.location.pathname || '' : '').toLowerCase();
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const roleParam = params.get('role');
+    const viewParam = params.get('view');
+    const tokenParam = params.get('token');
+
+    let r = (roleParam || '').toLowerCase().trim();
+    let v = (viewParam || '').toLowerCase().trim();
+
+    if (path.includes('/history')) v = 'history';
+    else if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
+    else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
+    else if (path.includes('/spectator')) r = 'spectator';
+    else if (path.includes('/admin')) v = 'admin';
+    else if (path.includes('/register')) v = 'register';
+
+    if (r.includes('cap1')) r = 'cap1';
+    else if (r.includes('cap2')) r = 'cap2';
+    else if (r.includes('spectator')) r = 'spectator';
+    else if (r.includes('admin')) r = 'admin';
+
+    if (v.includes('history')) v = 'history';
+    else if (v.includes('admin')) v = 'admin';
+    else if (v.includes('register')) v = 'register';
+
+    let resolvedToken = tokenParam || null;
+    if (!resolvedToken && typeof sessionStorage !== 'undefined') {
+      try {
+        resolvedToken = sessionStorage.getItem('squaddraft_captain_token');
+      } catch (e) {}
+    }
+
+    if (r === 'cap1' || r === 'cap2') {
+      return { view: 'room', role: r, token: resolvedToken };
+    }
+    if (r === 'spectator') {
+      return { view: 'room', role: 'spectator', token: null };
+    }
+    if (v === 'history') {
+      return { view: 'history', role: 'spectator', token: null };
+    }
+    if (v === 'admin' || r === 'admin') {
+      return { view: 'admin', role: 'admin', token: null };
+    }
+    return { view: 'register', role: 'spectator', token: null };
+  } catch (e) {
+    return { view: 'register', role: 'spectator', token: null };
+  }
+}
+
 export default function App() {
-  const [activeView, setActiveView] = useState('register');
+  const initialRoute = getInitialRoute();
+  const [activeView, setActiveView] = useState(initialRoute.view);
   const [isAdminLoggedIn, setIsAdminLoggedInState] = useState(() => {
     try {
       return localStorage.getItem('squaddraft_admin_logged_in') === 'true';
@@ -76,7 +130,7 @@ export default function App() {
   const [captain2, setCaptain2] = useState(null);
   const [cap1Token, setCap1Token] = useState(null);
   const [cap2Token, setCap2Token] = useState(null);
-  const [captainToken, setCaptainToken] = useState(null);
+  const [captainToken, setCaptainToken] = useState(initialRoute.token);
   const [team1Kit, setTeam1Kit] = useState('white');
   const [team2Kit, setTeam2Kit] = useState('black');
   const [team1Name, setTeam1Name] = useState('Team White');
@@ -110,10 +164,15 @@ export default function App() {
     pausedRemainingMs: 90000
   });
 
-  const [roomRole, setRoomRole] = useState('spectator');
+  const [roomRole, setRoomRole] = useState(initialRoute.role);
+  // Captain routes MUST NEVER be overridden by an existing Admin session in the same browser.
   const effectiveRole = (roomRole === 'cap1' || roomRole === 'cap2')
     ? roomRole
-    : (roomRole === 'spectator' ? 'spectator' : ((isAdminLoggedIn && adminToken) ? 'admin' : 'spectator'));
+    : (activeView === 'admin' && isAdminLoggedIn && adminToken
+        ? 'admin'
+        : (roomRole === 'admin' && activeView === 'room' && isAdminLoggedIn && adminToken
+            ? 'admin'
+            : 'spectator'));
   const [playerDirectory, setPlayerDirectory] = useState([]);
   const [matchArchive, setMatchArchive] = useState([]);
   const [matchMetadata, setMatchMetadata] = useState({
@@ -127,54 +186,19 @@ export default function App() {
 
   useEffect(() => {
     function parseRoute() {
-      const path = (window.location.pathname || '').toLowerCase();
-      const params = new URLSearchParams(window.location.search);
-      const roleParam = params.get('role');
-      const viewParam = params.get('view');
-      const tokenParam = params.get('token');
-
-      if (tokenParam) {
-        setCaptainToken(tokenParam);
+      const route = getInitialRoute();
+      setActiveView(route.view);
+      setRoomRole(route.role);
+      if (route.token) {
+        setCaptainToken(route.token);
         try {
-          sessionStorage.setItem('squaddraft_captain_token', tokenParam);
+          sessionStorage.setItem('squaddraft_captain_token', route.token);
         } catch (e) {}
       } else {
         try {
           const savedToken = sessionStorage.getItem('squaddraft_captain_token');
           if (savedToken) setCaptainToken(savedToken);
         } catch (e) {}
-      }
-
-      let r = (roleParam || '').toLowerCase().trim();
-      let v = (viewParam || '').toLowerCase().trim();
-
-      // Clean pathname routing
-      if (path.includes('/history')) v = 'history';
-      else if (path.includes('/captain/1') || path === '/cap1') r = 'cap1';
-      else if (path.includes('/captain/2') || path === '/cap2') r = 'cap2';
-      else if (path.includes('/spectator')) r = 'spectator';
-      else if (path.includes('/admin')) v = 'admin';
-      else if (path.includes('/register')) v = 'register';
-
-      // Query parameter support
-      if (r.includes('cap1')) r = 'cap1';
-      else if (r.includes('cap2')) r = 'cap2';
-      else if (r.includes('spectator')) r = 'spectator';
-      else if (r.includes('admin')) r = 'admin';
-
-      if (v.includes('history')) v = 'history';
-      else if (v.includes('admin')) v = 'admin';
-      else if (v.includes('register')) v = 'register';
-
-      if (v === 'history') {
-        setActiveView('history');
-      } else if (r === 'cap1' || r === 'cap2' || r === 'spectator') {
-        setRoomRole(r);
-        setActiveView('room');
-      } else if (r === 'admin' || v === 'admin') {
-        setActiveView('admin');
-      } else if (v === 'register') {
-        setActiveView('register');
       }
     }
 
@@ -408,16 +432,17 @@ export default function App() {
                     tossState={tossState}
                     myRole={effectiveRole}
                     captainToken={activeCaptainToken}
+                    adminToken={effectiveRole === 'admin' ? adminToken : null}
                     onProceed={() => {
                       socket.emit('start_draft');
                       sfx.playWhistle();
                     }}
-                    onBack={() => setActiveView('admin')}
+                    onBack={effectiveRole === 'admin' ? () => setActiveView('admin') : null}
                   />
                 )}
 
                 {roomStep === 'draft' && (
-                  roomRole === 'spectator' ? (
+                  effectiveRole === 'spectator' ? (
                     <SpectatorBroadcast
                       allPlayers={players}
                       captain1={captain1}
@@ -442,9 +467,9 @@ export default function App() {
                       draftState={draftState}
                       myRole={effectiveRole}
                       captainToken={activeCaptainToken}
-                      adminToken={adminToken}
+                      adminToken={effectiveRole === 'admin' ? adminToken : null}
                       onDraftComplete={handleDraftComplete}
-                      isSpectator={false}
+                      isSpectator={effectiveRole === 'spectator'}
                     />
                   )
                 )}

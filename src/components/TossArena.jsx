@@ -17,6 +17,7 @@ export default function TossArena({
   tossState,
   myRole,
   captainToken,
+  adminToken,
   onProceed,
   onBack
 }) {
@@ -27,7 +28,7 @@ export default function TossArena({
 
   const isCaptain1 = myRole === 'cap1';
   const isCaptain2 = myRole === 'cap2';
-  const isAdmin = myRole === 'admin';
+  const isAdmin = myRole === 'admin' && !!adminToken;
   const isSpectator = myRole === 'spectator';
   const isCaptain = isCaptain1 || isCaptain2;
 
@@ -60,9 +61,9 @@ export default function TossArena({
     }
   }, [tossWinner]);
 
-  const handleCoinFlip = () => {
-    if (!isCaptain || isFlipping || tossWinner) return;
-    socket.emit('toss_start_flip', { token: captainToken, role: myRole });
+  const handleCoinFlip = (choice = callerChoice) => {
+    if (!isCaptain1 || isFlipping || tossWinner) return;
+    socket.emit('toss_call_and_flip', { choice, token: captainToken });
     sfx.playCoinToss();
   };
 
@@ -104,16 +105,30 @@ export default function TossArena({
         </div>
       )}
 
-      {isCaptain && (
+      {isCaptain1 && (
         <div className="bg-slate-900 border border-cyan-500/40 p-4 rounded-2xl flex items-center justify-between shadow-lg text-white">
           <div className="flex items-center space-x-2.5 text-xs font-bold text-cyan-200">
             <span className="text-base">👑</span>
             <span>
-              You are {isCaptain1 ? `Captain 1 (${captain1?.name})` : `Captain 2 (${captain2?.name})`}. Authorized to flip the coin!
+              You are Captain 1 ({captain1?.name}). You are the designated caller! Call Heads or Tails to initiate the toss.
             </span>
           </div>
           <span className="text-[10px] bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 px-2.5 py-1 rounded-full font-black uppercase">
-            Authorized Captain
+            Designated Caller
+          </span>
+        </div>
+      )}
+
+      {isCaptain2 && (
+        <div className="bg-slate-900 border border-purple-500/40 p-4 rounded-2xl flex items-center justify-between shadow-lg text-white">
+          <div className="flex items-center space-x-2.5 text-xs font-bold text-purple-200">
+            <span className="text-base">👑</span>
+            <span>
+              You are Captain 2 ({captain2?.name}). Observing Captain 1's coin toss call.
+            </span>
+          </div>
+          <span className="text-[10px] bg-purple-500/20 border border-purple-400/40 text-purple-300 px-2.5 py-1 rounded-full font-black uppercase">
+            Observer
           </span>
         </div>
       )}
@@ -156,45 +171,49 @@ export default function TossArena({
           </div>
         </div>
 
-        {/* Caller Choice (Captain 1 Calls Heads or Tails) */}
+        {/* Caller Choice Stage */}
         <div className="py-4 flex flex-col items-center justify-center">
-          <label className="block text-xs font-black uppercase tracking-wider text-slate-300 mb-2">
-            {captain1?.name}'s Call (Captain 1)
-          </label>
           {isCaptain1 && !tossWinner && !isFlipping ? (
-            <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  socket.emit('toss_set_caller_choice', { choice: 'heads', token: captainToken, role: myRole });
-                  sfx.playPick();
-                }}
-                className={`py-2.5 rounded-xl font-black text-xs border transition-all cursor-pointer ${
-                  callerChoice === 'heads'
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg shadow-amber-400/20'
-                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                ⚽ HEADS
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  socket.emit('toss_set_caller_choice', { choice: 'tails', token: captainToken, role: myRole });
-                  sfx.playPick();
-                }}
-                className={`py-2.5 rounded-xl font-black text-xs border transition-all cursor-pointer ${
-                  callerChoice === 'tails'
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg shadow-amber-400/20'
-                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                🏆 TAILS
-              </button>
+            <div className="space-y-3 text-center">
+              <span className="text-xs font-black uppercase tracking-wider text-cyan-300 block">
+                👑 Captain 1: Choose Heads or Tails to Flip
+              </span>
+              <div className="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
+                <button
+                  type="button"
+                  onClick={() => handleCoinFlip('heads')}
+                  className="py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 transition-all transform active:scale-95 cursor-pointer flex items-center justify-center space-x-2"
+                >
+                  <span className="text-base">⚽</span>
+                  <span>CALL HEADS & FLIP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCoinFlip('tails')}
+                  className="py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 transition-all transform active:scale-95 cursor-pointer flex items-center justify-center space-x-2"
+                >
+                  <span className="text-base">🏆</span>
+                  <span>CALL TAILS & FLIP</span>
+                </button>
+              </div>
+            </div>
+          ) : isCaptain2 && !tossWinner && !isFlipping ? (
+            <div className="px-6 py-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-center space-y-1">
+              <div className="text-xs font-black text-amber-300 flex items-center justify-center space-x-1.5">
+                <span className="animate-spin">⏳</span>
+                <span>Captain 1 ({captain1?.name}) is making the call</span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium">
+                The authoritative coin flip will automatically start once Captain 1 calls Heads or Tails.
+              </p>
+            </div>
+          ) : !tossWinner && !isFlipping ? (
+            <div className="px-6 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center text-xs font-bold text-slate-300">
+              Waiting for Captain 1 ({captain1?.name}) to call Heads or Tails...
             </div>
           ) : (
-            <div className="px-4 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 font-black text-xs">
-              {captain1?.name} has called: <span className="text-amber-400 uppercase font-black">{callerChoice}</span>
+            <div className="px-5 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-300 font-bold text-xs">
+              Captain 1 ({captain1?.name}) called: <span className="text-amber-400 uppercase font-black">{callerChoice}</span>
             </div>
           )}
         </div>
@@ -212,7 +231,7 @@ export default function TossArena({
               tossFlipEvent={tossFlipEvent}
               onCoinFlip={handleCoinFlip}
               role={myRole}
-              canFlipToss={isCaptain && !tossWinner && !isFlipping}
+              canFlipToss={false}
             />
           </ArenaErrorBoundary>
         </div>
@@ -236,34 +255,44 @@ export default function TossArena({
             </div>
           ) : isFlipping ? (
             <div className="px-6 py-3 rounded-xl bg-amber-500/20 border border-amber-400 text-amber-300 font-black text-sm uppercase tracking-wider animate-pulse">
-              🪙 Coin is in the air at center pitch...
+              🪙 Coin is in the air at center pitch... (Captain 1 called {callerChoice?.toUpperCase()})
             </div>
-          ) : isCaptain ? (
-            <button
-              onClick={handleCoinFlip}
-              disabled={isFlipping}
-              className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-base shadow-xl shadow-amber-400/20 flex items-center space-x-2 transition-all transform active:scale-95 cursor-pointer"
-            >
-              <Coins className="w-5 h-5 text-slate-950" />
-              <span>FLIP THE COIN NOW</span>
-            </button>
-          ) : (
+          ) : isCaptain2 ? (
             <div className="px-5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-bold">
-              Waiting for Captain to flip the coin...
+              Captain 1 is making the call...
             </div>
-          )}
+          ) : null}
 
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between w-full pt-4 border-t border-slate-800">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Setup</span>
-              </button>
-            )}
+          {/* Navigation & Admin Controls */}
+          <div className="flex items-center justify-between w-full pt-4 border-t border-slate-800 gap-3">
+            <div className="flex items-center gap-2">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Setup</span>
+                </button>
+              )}
+
+              {/* Admin-Only Pre-Draft Reset Toss */}
+              {isAdmin && !isFlipping && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Admin: Are you sure you want to reset the coin toss? Both captains will need to re-toss before the draft begins.')) {
+                      socket.emit('toss_reset_admin', { adminToken });
+                      sfx.playBuzzer();
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
+                  title="Reset Toss (Admin Pre-Draft Only)"
+                >
+                  ↺ Reset Toss (Admin)
+                </button>
+              )}
+            </div>
 
             {tossWinner && (
               <button

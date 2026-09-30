@@ -27,6 +27,7 @@ export default function Navbar({
     if (nextState) sfx.playPick();
   };
 
+  const isCaptain = myRole === 'cap1' || myRole === 'cap2';
   const isSpectator = myRole === 'spectator';
   const isLight = activeView === 'register';
 
@@ -56,7 +57,15 @@ export default function Navbar({
         {/* Left: SQUADDRAFT ARENA Brand Logo */}
         <div
           className="flex items-center space-x-3 cursor-pointer group select-none shrink-0"
-          onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'register')}
+          onClick={() => {
+            if (isCaptain || activeView === 'room') {
+              navigateTo('room');
+            } else if (activeView === 'admin' && isAdminLoggedIn) {
+              navigateTo('admin');
+            } else {
+              navigateTo('register');
+            }
+          }}
         >
           <div
             className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform ${
@@ -163,8 +172,8 @@ export default function Navbar({
 
         {/* Right Section: Role Context, CTA & Controls */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Admin Navigation Badges (When Admin Logged In) */}
-          {isAdminLoggedIn ? (
+          {/* Admin Navigation Badges (Visible ONLY to Admin, never to Captains or Spectator) */}
+          {!isCaptain && !isSpectator && isAdminLoggedIn ? (
             <div
               className={`hidden sm:flex items-center space-x-1 p-1 rounded-2xl border ${
                 isLight ? 'bg-slate-50 border-[#E5E7EB]' : 'bg-slate-900/90 border-slate-800'
@@ -198,8 +207,8 @@ export default function Navbar({
               </button>
             </div>
           ) : (
-            /* Role Status Badge for Captains / Spectators when in Draft Room */
-            activeView === 'room' && (
+            /* Role Status Badge for Captains / Spectators */
+            (isCaptain || isSpectator || activeView === 'room') && (
               <div className="hidden sm:flex items-center">
                 {myRole === 'cap1' && (
                   <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black">
@@ -246,18 +255,6 @@ export default function Navbar({
               <VolumeX className="w-4 h-4 text-slate-400" />
             )}
           </button>
-
-          {/* Admin Reset Match button */}
-          {isAdminLoggedIn && (
-            <button
-              onClick={() => onReset(true)}
-              className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black transition-all shadow-xs cursor-pointer shrink-0"
-              title="Admin Match Reset (PIN Authorized)"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
-              <span>Reset</span>
-            </button>
-          )}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -325,7 +322,7 @@ export default function Navbar({
             <span>Match History</span>
           </button>
 
-          {isAdminLoggedIn && (
+          {!isCaptain && !isSpectator && isAdminLoggedIn && (
             <div className={`pt-2 border-t space-y-1 ${isLight ? 'border-[#E5E7EB]' : 'border-slate-800'}`}>
               <button
                 onClick={() => navigateTo('admin')}

@@ -151,10 +151,18 @@ export default function DraftRoom({
     }
   }, [isDraftComplete]);
 
-  const isAdmin = myRole === 'admin';
+  const isAdmin = myRole === 'admin' && !!adminToken;
   const isCap1Viewer = myRole === 'cap1';
   const isCap2Viewer = myRole === 'cap2';
   const isCaptain = isCap1Viewer || isCap2Viewer;
+
+  // Issue 8: Dynamic draft counts derived from participating roster and assigned captains
+  const totalRosterCount = Array.isArray(allPlayers) && allPlayers.length > 0
+    ? allPlayers.length
+    : (availablePlayers.length + team1.length + team2.length);
+  const totalDraftablePicks = Math.max(0, totalRosterCount - 2);
+  const targetTeamCapacity = Math.ceil(totalRosterCount / 2);
+  const displayPickNumber = totalDraftablePicks > 0 ? Math.min(pickNumber, totalDraftablePicks) : 0;
 
   const isMyTurn = !isAdmin && !isSpectator && (
     (currentTurn === 1 && isCap1Viewer) ||
@@ -340,7 +348,7 @@ export default function DraftRoom({
           <div className="flex items-center gap-3">
             <div className="text-center">
               <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase block">
-                ROUND {Math.ceil(pickNumber / 2)} | PICK {pickNumber} OF {(allPlayers.length || 16) - 2}
+                ROUND {Math.ceil(Math.max(1, pickNumber) / 2)} | PICK {displayPickNumber} OF {totalDraftablePicks}
               </span>
               <span className={`text-sm sm:text-base font-black tracking-wider uppercase ${
                 currentTurn === 1 ? 'text-cyan-400' : 'text-purple-400'
@@ -375,7 +383,7 @@ export default function DraftRoom({
                   </div>
                 </div>
                 <span className="text-xs font-black text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-600/40">
-                  {team1.length} / {Math.ceil((allPlayers.length || 16) / 2)}
+                  {team1.length} / {targetTeamCapacity}
                 </span>
               </div>
 
@@ -446,7 +454,7 @@ export default function DraftRoom({
                   </div>
                 </div>
                 <span className="text-xs font-black text-purple-400 bg-purple-950/80 px-2 py-0.5 rounded border border-purple-600/40">
-                  {team2.length} / {Math.ceil((allPlayers.length || 16) / 2)}
+                  {team2.length} / {targetTeamCapacity}
                 </span>
               </div>
 

@@ -414,6 +414,7 @@ io.on('connection', (socket) => {
     if (config.captain1 !== undefined) {
       roomState.captain1 = config.captain1;
       roomState.cap1Token = generateSecureToken();
+      roomState.matchScore = null;
       if (config.captain1) {
         await dbSetCaptainToken(roomState.roomId, 1, config.captain1.id, roomState.team1Kit, roomState.cap1Token).catch(() => {});
       }
@@ -421,6 +422,7 @@ io.on('connection', (socket) => {
     if (config.captain2 !== undefined) {
       roomState.captain2 = config.captain2;
       roomState.cap2Token = generateSecureToken();
+      roomState.matchScore = null;
       if (config.captain2) {
         await dbSetCaptainToken(roomState.roomId, 2, config.captain2.id, roomState.team2Kit, roomState.cap2Token).catch(() => {});
       }
@@ -440,14 +442,62 @@ io.on('connection', (socket) => {
       return;
     }
     roomState.roomStep = step;
+    if (step === 'setup' || step === 'toss') {
+      roomState.matchScore = null;
+    }
     broadcastState();
   });
 
-  // --- Authoritative Coin Toss (Requires Valid Match-Scoped Captain Token) ---
-  socket.on('toss_start_flip', async ({ token, role } = {}) => {
+  // --- Authoritative Coin Toss (Captain 1 is the Designated Caller) ---
+  socket.on('toss_call_and_flip', async ({ choice, token } = {}) => {
     const verifiedRole = await resolveCaptainRole(token);
-    if (!verifiedRole || (verifiedRole !== 'cap1' && verifiedRole !== 'cap2')) {
-      socket.emit('error_message', 'Invalid or missing captain token. Only authorized captains can flip the coin.');
+    if (verifiedRole !== 'cap1') {
+      socket.emit('error_message', 'Only Captain 1 can call Heads or Tails and initiate the toss. Captain 2 observes.');
+      return;
+    }
+    if (roomState.roomStep !== 'toss') {
+      socket.emit('error_message', 'Match is not in Coin Toss stage.');
+      return;
+    }
+    if (roomState.tossState.winner) {
+      socket.emit('error_message', 'The coin toss has already completed.');
+      return;
+    }
+    if (roomState.tossState.isFlipping) {
+      return;
+    }
+
+    const cleanChoice = (choice === 'tails') ? 'tails' : 'heads';
+    roomState.tossState.callerChoice = cleanChoice;
+
+    const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
+    const winner = outcome === cleanChoice ? roomState.captain1 : roomState.captain2;
+
+    roomState.tossState.isFlipping = true;
+    roomState.tossState.coinResult = null;
+
+    io.emit('toss_flipping_started', {
+      callerChoice: cleanChoice,
+      outcome,
+      initiatedBy: verifiedRole
+    });
+
+    setTimeout(() => {
+      roomState.tossState.isFlipping = false;
+      roomState.tossState.coinResult = outcome;
+      roomState.tossState.winner = winner;
+      roomState.firstPickCaptain = winner;
+      if (roomState.draftState) {
+        roomState.draftState.currentTurn = (winner && roomState.captain1 && winner.id === roomState.captain1.id) ? 1 : 2;
+      }
+      broadcastState();
+    }, 2400);
+  });
+
+  socket.on('toss_start_flip', async ({ token, role, choice } = {}) => {
+    const verifiedRole = await resolveCaptainRole(token);
+    if (verifiedRole !== 'cap1') {
+      socket.emit('error_message', 'Only Captain 1 can call and flip the coin. Captain 2 observes.');
       return;
     }
 
@@ -457,6 +507,10 @@ io.on('connection', (socket) => {
     }
     if (roomState.tossState.isFlipping) {
       return;
+    }
+
+    if (choice) {
+      roomState.tossState.callerChoice = (choice === 'tails') ? 'tails' : 'heads';
     }
 
     const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
@@ -489,10 +543,31 @@ io.on('connection', (socket) => {
     const token = typeof data === 'object' ? data?.token : null;
     const verifiedRole = await resolveCaptainRole(token);
     if (verifiedRole !== 'cap1') {
-      socket.emit('error_message', 'Only Captain 1 with a valid token can call Heads or Tails.');
+      socket.emit('error_message', 'Only Captain 1 can call Heads or Tails. Captain 2 observes.');
       return;
     }
     roomState.tossState.callerChoice = choice;
+    broadcastState();
+  });
+
+  // Admin-Only Pre-Draft Toss Reset
+  socket.on('toss_reset_admin', async ({ adminToken } = {}) => {
+    const isAuth = await dbValidateAdminSession(adminToken);
+    if (!isAuth) {
+      socket.emit('error_message', 'Admin authorization required.');
+      return;
+    }
+    if (roomState.roomStep === 'draft' || roomState.roomStep === 'pitch' || roomState.roomStep === 'complete') {
+      socket.emit('error_message', 'Cannot reset toss once live draft has started. Toss result is immutable.');
+      return;
+    }
+    roomState.tossState = {
+      isFlipping: false,
+      callerChoice: 'heads',
+      coinResult: null,
+      winner: null
+    };
+    roomState.firstPickCaptain = null;
     broadcastState();
   });
 
@@ -506,8 +581,10 @@ io.on('connection', (socket) => {
     const c2 = roomState.captain2;
     if (!c1 || !c2) return;
 
-    const initialTurn = (roomState.firstPickCaptain && roomState.firstPickCaptain.id === c1.id) ? 1 : 2;
-    const available = roomState.players.filter(p => p.id !== c1.id && p.id !== c2.id);
+    const isCap1 = (p) => c1?.id ? p.id === c1.id : (p.name && c1?.name && p.name.toLowerCase() === c1.name.toLowerCase());
+    const isCap2 = (p) => c2?.id ? p.id === c2.id : (p.name && c2?.name && p.name.toLowerCase() === c2.name.toLowerCase());
+    const available = roomState.players.filter(p => !isCap1(p) && !isCap2(p));
+    const initialTurn = (roomState.firstPickCaptain && (roomState.firstPickCaptain.id === c1.id || roomState.firstPickCaptain.name === c1.name)) ? 1 : 2;
 
     const now = Date.now();
     roomState.draftState = {
@@ -823,11 +900,16 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  // SAFEGUARD 13: Final Score Event
+  // SAFEGUARD 13: Final Score Event (Admin Only, Available Only After Draft Completion)
   socket.on('save_final_score', async ({ team1Score, team2Score, adminToken } = {}) => {
     const isAuth = await dbValidateAdminSession(adminToken);
     if (!isAuth) {
       socket.emit('error_message', 'Admin authorization required to save score.');
+      return;
+    }
+    // Issue 4 Lifecycle constraint: Final score is strictly prohibited during setup, toss, and draft
+    if (roomState.roomStep !== 'pitch' && roomState.roomStep !== 'complete' && roomState.roomStep !== 'awaiting_result') {
+      socket.emit('error_message', 'Cannot record final score until live draft is complete and match is awaiting result.');
       return;
     }
     const t1 = parseInt(team1Score, 10);
@@ -991,12 +1073,12 @@ app.post('/api/draft/pick', async (req, res) => {
   return res.json({ success: true, player: result.player, currentTurn: roomState.draftState.currentTurn });
 });
 
-// Authoritative Coin Toss with Token Validation
+// Authoritative Coin Toss with Token Validation (Captain 1 Only)
 app.post('/api/draft/toss', async (req, res) => {
   const { token } = req.body || {};
   const verifiedRole = await resolveCaptainRole(token);
-  if (!verifiedRole || (verifiedRole !== 'cap1' && verifiedRole !== 'cap2')) {
-    return res.status(403).json({ error: 'Only verified Captain 1 or Captain 2 with a valid token can initiate the coin toss.' });
+  if (verifiedRole !== 'cap1') {
+    return res.status(403).json({ error: 'Only Captain 1 can call and initiate the coin toss. Captain 2 observes.' });
   }
   if (roomState.tossState.winner) {
     return res.status(400).json({ error: 'The coin toss has already been completed.' });
@@ -1032,7 +1114,7 @@ app.post('/api/draft/toss', async (req, res) => {
   return res.json({ success: true, message: 'Coin toss started authoritatively on server.' });
 });
 
-// Reset Toss (Admin Only)
+// Reset Toss (Admin Only, Pre-Draft Only)
 app.post('/api/draft/reset-toss', async (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.body.adminToken;
@@ -1040,8 +1122,8 @@ app.post('/api/draft/reset-toss', async (req, res) => {
   if (!isAuth) {
     return res.status(403).json({ error: 'Only Admin can reset the coin toss.' });
   }
-  if (!req.body.force && roomState.roomStep === 'draft' && roomState.draftState?.draftHistory?.length > 0) {
-    return res.status(400).json({ error: 'Cannot reset coin toss while drafting is in progress.' });
+  if (roomState.roomStep === 'draft' || roomState.roomStep === 'pitch' || roomState.roomStep === 'complete') {
+    return res.status(400).json({ error: 'Cannot reset coin toss once live draft has started. Toss result is immutable.' });
   }
   roomState.tossState = {
     isFlipping: false,
@@ -1063,6 +1145,11 @@ app.post('/api/matches/:matchId/score', async (req, res) => {
   const isAuth = await dbValidateAdminSession(adminToken);
   if (!isAuth) {
     return res.status(403).json({ error: 'Unauthorized: Admin authentication required to save final score.' });
+  }
+
+  // Issue 4 Lifecycle constraint: Final score is strictly prohibited during setup, toss, and draft
+  if (roomState.roomStep !== 'pitch' && roomState.roomStep !== 'complete' && roomState.roomStep !== 'awaiting_result') {
+    return res.status(400).json({ error: 'Cannot record final score until live draft is complete and match is awaiting result.' });
   }
 
   const t1 = parseInt(team1Score, 10);
