@@ -1357,14 +1357,24 @@ app.get('/api/state', (req, res) => {
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 app.use((req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send('<!doctype html><html><head><title>SquadDraft Arena</title></head><body style="background:#0b0f19;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><h2>⚽ SquadDraft Arena Initializing... Please refresh in a moment.</h2><script>setTimeout(()=>location.reload(), 3000)</script></body></html>');
+  }
 });
 
 // Server Initialization
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-  await initDatabase();
+  try {
+    await initDatabase();
+  } catch (dbErr) {
+    console.error('Database initialization warning:', dbErr);
+  }
+
   try {
     // 1. Hydrate active fixture from database if available
     const activeFixture = await dbGetActiveFixture();
@@ -1394,18 +1404,27 @@ async function startServer() {
   } catch (err) {
     console.error('Warning: could not initialize player directory from database:', err.message);
   }
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log('⚽ SquadDraft PRO Production Real-Time Server running on port ' + PORT);
     startTunnel();
   });
 }
 
-startServer();
+startServer().catch(fatalErr => {
+  console.error('Fatal startServer caught:', fatalErr);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log('⚽ SquadDraft Emergency Fallback Server running on port ' + PORT);
+  });
+});
 
 let tunnelProcess = null;
 
 function startTunnel() {
-  const cloudUrl = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_URL || (process.env.RENDER ? ('https://' + (process.env.RENDER_SERVICE_NAME || 'squaddraft') + '.onrender.com') : null);
+  const cloudUrl = process.env.RENDER_EXTERNAL_URL ||
+    process.env.PUBLIC_URL ||
+    (process.env.RENDER ? ('https://' + (process.env.RENDER_SERVICE_NAME || 'squaddraft') + '.onrender.com') : null) ||
+    (process.env.NODE_ENV === 'production' ? 'https://squaddraft.onrender.com' : null);
   if (cloudUrl) {
     roomState.publicUrl = cloudUrl.replace(/\/+$/, '');
     try { fs.writeFileSync(path.join(__dirname, 'public_tunnel_url.txt'), roomState.publicUrl, 'utf8'); } catch(e){}

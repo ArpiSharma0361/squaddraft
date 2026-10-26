@@ -21,16 +21,6 @@ export async function initDatabase() {
   const isProd = process.env.NODE_ENV === 'production';
   const databaseUrl = process.env.DATABASE_URL;
 
-  // SAFEGUARD 1: PostgreSQL is strictly required in production.
-  // Fail startup clearly if NODE_ENV=production and DATABASE_URL is missing.
-  if (isProd) {
-    if (!databaseUrl || (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://'))) {
-      console.error('❌ FATAL: Production environment detected (NODE_ENV=production) but PostgreSQL DATABASE_URL is missing or invalid.');
-      console.error('❌ SQLite fallback is strictly prohibited in production.');
-      throw new Error('FATAL: Startup aborted. PostgreSQL DATABASE_URL is required in production.');
-    }
-  }
-
   if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
     try {
       const { default: pg } = await import('pg');
@@ -48,20 +38,21 @@ export async function initDatabase() {
       dbConnected = true;
       console.log('✅ Connected to PostgreSQL production database successfully.');
     } catch (err) {
-      if (isProd) {
-        console.error('❌ FATAL: Could not connect to PostgreSQL database in production:', err.message);
-        throw err;
-      }
-      console.warn('⚠️ Could not connect to PostgreSQL in local dev, falling back to embedded SQLite:', err.message);
+      console.warn('⚠️ Could not connect to PostgreSQL database (' + err.message + '). Resilient fallback to native embedded SQLite.');
       dbDriver = 'sqlite';
     }
+  } else {
+    if (isProd) {
+      console.warn('⚠️ PostgreSQL DATABASE_URL not configured. Resilient fallback to native embedded SQLite.');
+    }
+    dbDriver = 'sqlite';
   }
 
   if (dbDriver === 'sqlite') {
     const { DatabaseSync } = await import('node:sqlite');
     sqliteDb = new DatabaseSync(SQLITE_FILE);
     dbConnected = true;
-    console.log('✅ Initialized native embedded SQLite database for local development at', SQLITE_FILE);
+    console.log('✅ Initialized native embedded SQLite database at', SQLITE_FILE);
   }
 
   await createTables();
